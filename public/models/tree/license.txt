@@ -1,0 +1,11 @@
+Model Information:
+* title:	PSX Birch Tree
+* source:	https://sketchfab.com/3d-models/psx-birch-tree-029c523a48054e05b95f1fbd9e987226
+* author:	Arimantos (https://sketchfab.com/Arimantos)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "PSX Birch Tree" (https://sketchfab.com/3d-models/psx-birch-tree-029c523a48054e05b95f1fbd9e987226) by Arimantos (https://sketchfab.com/Arimantos) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

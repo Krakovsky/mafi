@@ -1,0 +1,8 @@
+Model Information:
+* title:	Thomas Shelby Rigged
+* source:	https://sketchfab.com/3d-models/thomas-shelby-rigged-d42a016199c143268df1951552d0ff4b
+* author:	saifullahdev (https://sketchfab.com/saifullahdev)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

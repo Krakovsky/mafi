@@ -1,0 +1,57 @@
+.client-overlay {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  z-index: 12;
+  backdrop-filter: blur(7px);
+  background: linear-gradient(155deg, rgba(12, 17, 24, 0.78), rgba(16, 27, 33, 0.84));
+  border: 1px solid rgba(160, 184, 197, 0.25);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.client-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.35rem, 1.2rem + 0.7vw, 1.75rem);
+}
+
+.client-overlay p {
+  margin: 6px 0;
+}
+
+.client-overlay h2 {
+  margin: 16px 0 8px;
+  font-size: 1rem;
+  color: #d0dfec;
+}
+
+.client-overlay ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.client-overlay li {
+  line-height: 1.25;
+}
+
+.client-winner {
+  margin-top: 10px;
+  font-weight: 700;
+  color: #fff4bc;
+}
+
+@media (max-width: 760px) {
+  .client-overlay {
+    width: calc(100vw - 24px);
+    left: 12px;
+    top: auto;
+    bottom: 12px;
+    max-height: 45vh;
+    padding: 16px;
+  }
+}

@@ -1,0 +1,39 @@
+.app-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.scene-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.route-switch {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 20;
+  text-decoration: none;
+  color: #f0f3f7;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(5, 9, 13, 0.48);
+  padding: 10px 12px;
+}
+
+.route-switch:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 760px) {
+  .route-switch {
+    right: 10px;
+    top: 10px;
+    font-size: 0.72rem;
+    padding: 8px 10px;
+  }
+}

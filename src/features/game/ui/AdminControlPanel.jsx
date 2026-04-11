@@ -3,6 +3,129 @@ import { PHASE_TEXT, ROLE_OPTIONS } from '../model/constants'
 import { useGameStore } from '../model/gameStore'
 import '../../../styles/admin-panel.css'
 
+function PlayerCard({ player, onUpdate }) {
+  const [editData, setEditData] = useState({
+    number: player.number,
+    name: player.name,
+    role: player.role,
+    webcamUrl: player.webcamUrl,
+  })
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const isDirty =
+    editData.number !== player.number ||
+    editData.name !== player.name ||
+    editData.role !== player.role ||
+    editData.webcamUrl !== player.webcamUrl
+
+  const handleSave = () => {
+    onUpdate(player.id, editData)
+  }
+
+  const handleReset = () => {
+    setEditData({
+      number: player.number,
+      name: player.name,
+      role: player.role,
+      webcamUrl: player.webcamUrl,
+    })
+  }
+
+  return (
+    <div className="player-card">
+      <div className="player-card-header" onClick={() => setIsExpanded(!isExpanded)}>
+        <span className="player-label">
+          №{player.number} {player.name || `Игрок ${player.id + 1}`}
+        </span>
+        <span className="player-role-badge" data-role={player.role}>
+          {player.role}
+        </span>
+        <span className={`player-status ${player.alive ? 'alive' : 'dead'}`}>
+          {player.alive ? 'Жив' : 'Выбыл'}
+        </span>
+        <span className="expand-icon">{isExpanded ? '▲' : '▼'}</span>
+      </div>
+      {isExpanded && (
+        <div className="player-card-body">
+          <label className="field-label">Номер</label>
+          <input
+            className="field-input"
+            type="number"
+            min="1"
+            value={editData.number}
+            onChange={(event) => setEditData({ ...editData, number: Number(event.target.value) })}
+          />
+          <label className="field-label">Имя</label>
+          <input
+            className="field-input"
+            type="text"
+            value={editData.name}
+            onChange={(event) => setEditData({ ...editData, name: event.target.value })}
+            placeholder="Введите имя"
+          />
+          <label className="field-label">Роль</label>
+          <select
+            className="field-input"
+            value={editData.role}
+            onChange={(event) => setEditData({ ...editData, role: event.target.value })}
+          >
+            {ROLE_OPTIONS.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+          <label className="field-label">URL веб-камеры</label>
+          <input
+            className="field-input"
+            type="text"
+            value={editData.webcamUrl}
+            onChange={(event) => setEditData({ ...editData, webcamUrl: event.target.value })}
+            placeholder="URL веб-камеры"
+          />
+          <div className="button-row">
+            <button type="button" className="btn action" onClick={handleSave} disabled={!isDirty}>
+              Сохранить
+            </button>
+            {isDirty && (
+              <button type="button" className="btn ghost" onClick={handleReset}>
+                Отмена
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WebcamRow({ player, onUpdate }) {
+  const [editUrl, setEditUrl] = useState(player.webcamUrl)
+
+  const isDirty = editUrl !== player.webcamUrl
+
+  return (
+    <div className="player-row webcam-row">
+      <span className="player-label">№{player.number} {player.name || `Игрок ${player.id + 1}`}</span>
+      <input
+        className="field-input webcam-url-input"
+        type="text"
+        value={editUrl}
+        onChange={(event) => setEditUrl(event.target.value)}
+        placeholder="URL веб-камеры"
+      />
+      <button
+        type="button"
+        className="btn action btn-small"
+        disabled={!isDirty}
+        onClick={() => onUpdate(player.id, { webcamUrl: editUrl })}
+      >
+        ✓
+      </button>
+    </div>
+  )
+}
+
 export function AdminControlPanel({ onAssassinationChange }) {
   const {
     phase,
@@ -15,7 +138,9 @@ export function AdminControlPanel({ onAssassinationChange }) {
     setPhase,
     setRound,
     setPlayerRole,
-    setPlayerAlive,
+    setPlayerName,
+    setPlayerNumber,
+    setPlayerWebcamUrl,
     runNightManual,
     runDayVoteManual,
     addLogLine,
@@ -26,8 +151,20 @@ export function AdminControlPanel({ onAssassinationChange }) {
   const [sheriffCheckId, setSheriffCheckId] = useState('')
   const [dayVoteTargetId, setDayVoteTargetId] = useState('')
   const [manualLine, setManualLine] = useState('')
+  const [showPlayers, setShowPlayers] = useState(false)
+  const [showWebcams, setShowWebcams] = useState(false)
   const frameRef = useRef(null)
   const timeoutRef = useRef(null)
+
+  const handlePlayerUpdate = useCallback(
+    (playerId, data) => {
+      if (data.number !== undefined) setPlayerNumber(playerId, data.number)
+      if (data.name !== undefined) setPlayerName(playerId, data.name)
+      if (data.role !== undefined) setPlayerRole(playerId, data.role)
+      if (data.webcamUrl !== undefined) setPlayerWebcamUrl(playerId, data.webcamUrl)
+    },
+    [setPlayerNumber, setPlayerName, setPlayerRole, setPlayerWebcamUrl]
+  )
 
   const aliveCount = players.filter((player) => player.alive).length
   const aliveMafia = players.filter((player) => player.alive && player.role === 'mafia').length
@@ -220,24 +357,27 @@ export function AdminControlPanel({ onAssassinationChange }) {
         </button>
       </div>
 
-      <h2 className="section-title">Игроки и роли</h2>
-      <div className="players-list">
-        {players.map((player) => (
-          <div className="player-row" key={`admin-${player.id}`}>
-            <span className="player-label">Игрок {player.id + 1}</span>
-            <select className="field-input" value={player.role} onChange={(event) => setPlayerRole(player.id, event.target.value)}>
-              {ROLE_OPTIONS.map((role) => (
-                <option key={`${player.id}-${role}`} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="btn ghost" onClick={() => setPlayerAlive(player.id, !player.alive)}>
-              {player.alive ? 'Жив' : 'Выбыл'}
-            </button>
-          </div>
-        ))}
-      </div>
+      <h2 className="section-title collapsible" onClick={() => setShowPlayers(!showPlayers)}>
+        Игроки и роли {showPlayers ? '▲' : '▼'}
+      </h2>
+      {showPlayers && (
+        <div className="players-list">
+          {players.map((player) => (
+            <PlayerCard key={`admin-${player.id}`} player={player} onUpdate={handlePlayerUpdate} />
+          ))}
+        </div>
+      )}
+
+      <h2 className="section-title collapsible" onClick={() => setShowWebcams(!showWebcams)}>
+        Веб-камеры {showWebcams ? '▲' : '▼'}
+      </h2>
+      {showWebcams && (
+        <div className="players-list">
+          {players.map((player) => (
+            <WebcamRow key={`webcam-${player.id}`} player={player} onUpdate={handlePlayerUpdate} />
+          ))}
+        </div>
+      )}
 
       <h2 className="section-title">Ручной лог</h2>
       <input

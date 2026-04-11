@@ -62,21 +62,34 @@ export function PlayerActor({ player, position, focused, showWebcams }) {
           style={{
             pointerEvents: 'auto',
             width: webcamWidth,
-            height: webcamHeight,
             borderRadius: 12,
             overflow: 'hidden',
           }}
           transform={false}
           occlude
         >
-          <iframe
-            src="https://vdo.ninja/?view=Wjik7HN?autostart=true&autohide=true&camera=true&microphone=false&allowfullscreen=true"
-            title={`Player ${player.id + 1} webcam`}
-            width={webcamWidth}
-            height={webcamHeight}
-            allow="camera; autostart; autohide; microphone; fullscreen"
-            style={{ border: 'none', borderRadius: 12, background: '#222' }}
-          />
+          <div className="webcam-container" style={{ width: webcamWidth }}>
+            <iframe
+              src={player.webcamUrl || 'https://vdo.ninja/?view=Wjik7HN?autostart=true&autohide=true&camera=true&microphone=false&allowfullscreen=true'}
+              title={`Player ${player.number} webcam`}
+              width={webcamWidth}
+              height={webcamHeight}
+              allow="camera; autostart; autohide; microphone; fullscreen"
+              style={{ border: 'none', borderRadius: '12px 12px 0 0', background: '#222', display: 'block' }}
+            />
+            <div className="webcam-label" style={{
+              width: webcamWidth,
+              padding: '6px 10px',
+              background: 'rgba(0, 0, 0, 0.75)',
+              color: '#fff',
+              fontSize: 24,
+              fontWeight: 500,
+              textAlign: 'center',
+              borderRadius: '0 0 12px 12px',
+            }}>
+              №{player.number}{player.name ? ` ${player.name}` : ''}
+            </div>
+          </div>
         </Html>
       ) : null}
     </>

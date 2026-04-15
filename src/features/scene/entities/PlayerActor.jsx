@@ -4,18 +4,17 @@ import { ROLE_COLOR } from '../../game/model/constants'
 import { PlayerFallback } from './PlayerFallback'
 import { PlayerModel } from './PlayerModel'
 
+const VIEWPORT_W = 420 * 1.4
+const VIEWPORT_H = 236 * 1.4
+const headOffsetX = 0
+const headOffsetY = 3.26
+const headOffsetZ = 0.05
+
 function PlayerActorBase({ player, position, focused, showWebcams, webcamVisible = true }) {
   const tint = ROLE_COLOR[player.role]
   const [x, y, z] = position
   const facing = Math.atan2(-x, -z)
   const webcamSrc = (player.webcamUrl || '').trim()
-
-  const VIEWPORT_W = 420 * 1.4
-  const VIEWPORT_H = 236 * 1.4
-
-  const headOffsetX = 0
-  const headOffsetY = 2.55
-  const headOffsetZ = 0.05
 
   return (
     <>

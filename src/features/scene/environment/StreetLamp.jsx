@@ -1,17 +1,20 @@
-import { useMemo, useRef, useEffect } from 'react'
+import { useMemo, useRef } from 'react'
 import { Clone, useGLTF, useTexture } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { lampModelUrl } from '../../game/model/constants'
+import { useGameStore } from '../../game/model/gameStore'
 
-function LampPost({ position, rotation, phase }) {
+function LampPost({ position, rotation }) {
   const lightRef = useRef(null)
-  const isNight = phase === 'night'
 
-  useEffect(() => {
+  useFrame(() => {
     if (lightRef.current) {
-      lightRef.current.intensity = isNight ? 100 : 0
+      const phase = useGameStore.getState().phase
+      const target = phase === 'night' ? 100 : 0
+      lightRef.current.intensity += (target - lightRef.current.intensity) * 0.05
     }
-  }, [isNight])
+  })
 
   const gltf = useGLTF(lampModelUrl)
   const textures = useTexture({
@@ -66,13 +69,13 @@ function LampPost({ position, rotation, phase }) {
   )
 }
 
-export function StreetLamp({ phase = 'day' }) {
+export function StreetLamp() {
   return (
     <>
-      <LampPost position={[12.6, 0, 7.4]} rotation={[0, -0.75, 0]} phase={phase} />
-      <LampPost position={[-12.6, 0, 7.4]} rotation={[0, 0.75, 0]} phase={phase} />
-      <LampPost position={[12.6, 0, -7.4]} rotation={[0, -2.39, 0]} phase={phase} />
-      <LampPost position={[-12.6, 0, -7.4]} rotation={[0, 2.39, 0]} phase={phase} />
+      <LampPost position={[12.6, 0, 7.4]} rotation={[0, -0.75, 0]} />
+      <LampPost position={[-12.6, 0, 7.4]} rotation={[0, 0.75, 0]} />
+      <LampPost position={[12.6, 0, -7.4]} rotation={[0, -2.39, 0]} />
+      <LampPost position={[-12.6, 0, -7.4]} rotation={[0, 2.39, 0]} />
     </>
   )
 }

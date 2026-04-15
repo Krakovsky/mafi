@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { Environment, OrbitControls, Stars, useGLTF } from '@react-three/drei'
+import { Environment, OrbitControls, Stars, useGLTF, GradientTexture, Cloud } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   lampModelUrl,
@@ -16,74 +16,51 @@ import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
 
+function ProceduralGround() {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
+      <circleGeometry args={[45, 64]} />
+      <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+    </mesh>
+  )
+}
+
 function SceneAtmosphere({ phase }) {
-  const blendRef = useRef(phase === 'day' ? 1 : 0)
-  const sunProgressRef = useRef(0.08)
-  const moonProgressRef = useRef(0.58)
+  const isDay = phase === 'day'
+  const daySky = useMemo(() => new THREE.Color('#87ceeb'), [])
+  const nightSky = useMemo(() => new THREE.Color('#0a1628'), [])
+  const skyColor = useMemo(() => new THREE.Color('#0a1628'), [])
   const ambientLightRef = useRef(null)
   const hemisphereLightRef = useRef(null)
   const directionalLightRef = useRef(null)
-  const sunRef = useRef(null)
-  const moonRef = useRef(null)
-  const groundRef = useRef(null)
-  const daySky = useMemo(() => new THREE.Color('#b4c2d2'), [])
-  const nightSky = useMemo(() => new THREE.Color('#08111b'), [])
-  const skyColor = useMemo(() => new THREE.Color('#08111b'), [])
+  const starsRef = useRef(null)
+  const cloudRef = useRef(null)
 
-  useFrame((state, delta) => {
-    const target = phase === 'day' ? 1 : 0
-    blendRef.current = THREE.MathUtils.lerp(blendRef.current, target, Math.min(delta * 0.55, 1))
-
-    sunProgressRef.current = (sunProgressRef.current + delta * 0.03) % 1
-    moonProgressRef.current = (moonProgressRef.current + delta * 0.03) % 1
-
-    const dayBlend = blendRef.current
-    const nightBlend = 1 - dayBlend
-
-    skyColor.copy(nightSky).lerp(daySky, dayBlend)
+  useFrame((state) => {
+    skyColor.copy(nightSky).lerp(daySky, isDay ? 1 : 0)
     state.scene.background = skyColor
     if (state.scene.fog) {
       state.scene.fog.color.copy(skyColor)
     }
 
     if (ambientLightRef.current) {
-      ambientLightRef.current.intensity = 0.32 + dayBlend * 0.54
-      ambientLightRef.current.color.set(dayBlend > 0.5 ? '#f5f5f2' : '#b0bbd8')
+      ambientLightRef.current.intensity = isDay ? 0.7 : 0.3
+      ambientLightRef.current.color.set(isDay ? '#ffffff' : '#6070a0')
     }
-
     if (hemisphereLightRef.current) {
-      hemisphereLightRef.current.intensity = 0.26 + dayBlend * 0.34
-      hemisphereLightRef.current.color.set(dayBlend > 0.5 ? '#f4f8ff' : '#9cb2d4')
+      hemisphereLightRef.current.intensity = isDay ? 0.8 : 0.4
+      hemisphereLightRef.current.color.set(isDay ? '#c4d4ff' : '#5060a0')
     }
-
     if (directionalLightRef.current) {
-      directionalLightRef.current.intensity = 0.48 + dayBlend * 0.67
-      directionalLightRef.current.color.set(dayBlend > 0.5 ? '#fff6e2' : '#c2d0f8')
-      directionalLightRef.current.position.set(
-        THREE.MathUtils.lerp(-8, 11, dayBlend),
-        THREE.MathUtils.lerp(12, 18, dayBlend),
-        THREE.MathUtils.lerp(-10, 8, dayBlend),
-      )
+      directionalLightRef.current.intensity = isDay ? 1.2 : 0.2
+      directionalLightRef.current.color.set(isDay ? '#ffeedd' : '#8899bb')
     }
 
-    const sunX = 24 - sunProgressRef.current * 48
-    const sunY = 2 - sunProgressRef.current * 10
-    if (sunRef.current) {
-      sunRef.current.position.set(sunX, sunY, -30)
-      sunRef.current.material.emissiveIntensity = 0.08 + dayBlend * 0.68
-      sunRef.current.material.opacity = 0.1 + dayBlend * 0.9
+    if (starsRef.current) {
+      starsRef.current.visible = !isDay
     }
-
-    const moonX = 24 - moonProgressRef.current * 48
-    const moonY = 2 - moonProgressRef.current * 10
-    if (moonRef.current) {
-      moonRef.current.position.set(moonX, moonY, -30)
-      moonRef.current.material.emissiveIntensity = 0.08 + nightBlend * 0.56
-      moonRef.current.material.opacity = 0.1 + nightBlend * 0.9
-    }
-
-    if (groundRef.current) {
-      groundRef.current.color.set(dayBlend > 0.5 ? '#657167' : '#1f2928')
+    if (cloudRef.current) {
+      cloudRef.current.visible = isDay
     }
   })
 
@@ -92,54 +69,63 @@ function SceneAtmosphere({ phase }) {
       <color attach="background" args={['#08111b']} />
       <fog attach="fog" args={['#08111b', 20, 125]} />
 
-      <Stars radius={80} depth={35} count={1600} factor={3} saturation={0.15} fade />
+      <Stars ref={starsRef} radius={80} depth={35} count={1600} factor={3} saturation={0.15} fade />
 
-      <ambientLight ref={ambientLightRef} intensity={0.32} color="#b0bbd8" />
+      <ambientLight ref={ambientLightRef} intensity={0.4} color="#b0bbd8" />
       <hemisphereLight
         ref={hemisphereLightRef}
-        intensity={0.26}
-        color="#9cb2d4"
-        groundColor="#31404d"
+        intensity={0.5}
+        color="#c4d4ff"
+        groundColor="#3a4a5a"
+      />
+      <directionalLight
+        position={[8, 5, 10]}
+        intensity={0.3}
+        color="#8ec8ff"
       />
 
       <directionalLight
         ref={directionalLightRef}
         castShadow
-        intensity={0.48}
-        color="#c2d0f8"
+        intensity={1.2}
+        color="#ffe4c4"
         position={[-8, 12, -10]}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
+        shadow-camera-near={0.5}
+        shadow-camera-far={60}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
+        shadow-bias={-0.0001}
+        shadow-normalBias={0.02}
+        shadow-radius={2}
       />
 
-      <Environment preset="city" />
+      <Environment preset="sunset" background={false} />
 
-      <mesh ref={sunRef} position={[20, 2, -30]}>
-        <sphereGeometry args={[1.65, 32, 32]} />
-        <meshStandardMaterial
-          color="#ffd95e"
-          emissive="#ffbf3d"
-          emissiveIntensity={0.08}
-          transparent
-          opacity={0.1}
-        />
-      </mesh>
+      {phase === 'day' && (
+        <>
+          <mesh position={[-25, 20, -70]}>
+            <sphereGeometry args={[3, 32, 32]} />
+            <meshBasicMaterial color="#ffee66" />
+          </mesh>
+          <pointLight color="#ffaa33" intensity={300} distance={100} decay={1} position={[-25, 20, -70]} />
+        </>
+      )}
 
-      <mesh ref={moonRef} position={[20, 2, -30]}>
-        <sphereGeometry args={[1.42, 32, 32]} />
-        <meshStandardMaterial
-          color="#cfd5ff"
-          emissive="#a4b0ff"
-          emissiveIntensity={0.08}
-          transparent
-          opacity={0.1}
-        />
-      </mesh>
+      {phase === 'night' && (
+        <>
+          <mesh position={[30, 22, -65]}>
+            <sphereGeometry args={[2, 32, 32]} />
+            <meshBasicMaterial color="#ccddff" />
+          </mesh>
+          <pointLight color="#6688ff" intensity={150} distance={80} decay={1.5} position={[30, 22, -65]} />
+        </>
+      )}
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[16, 80]} />
-        <meshStandardMaterial ref={groundRef} color="#1f2928" roughness={0.95} />
-      </mesh>
+      <Cloud ref={cloudRef} opacity={0.4} speed={0.2} width={40} depth={1.5} segments={20} position={[0, 15, -25]} />
     </>
   )
 }
@@ -157,10 +143,11 @@ export function MafiaScene({ players, phase, assassination, showWebcams = true }
   return (
     <Canvas style={{ width: '100%', height: '100%' }} shadows camera={{ position: [0, 11, 34], fov: 42 }}>
       <SceneAtmosphere phase={phase} />
+      <ProceduralGround />
 
       <Suspense fallback={null}>
         <TownBackdrop />
-        <StreetLamp />
+        <StreetLamp phase={phase} />
         <TreeRing />
       </Suspense>
 

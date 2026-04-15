@@ -2,6 +2,7 @@ export const mafiaModelUrl = '/models/maf/scene.gltf'
 export const townModelUrl = '/models/town/scene.gltf'
 export const lampModelUrl = '/models/lamp/scene.gltf'
 export const treeModelUrl = '/models/tree/scene.gltf'
+export const dinoModelUrl = '/models/dino/scene.gltf'
 
 export const PLAYER_COUNT = 10
 export const PLAYER_RING_RADIUS = 9

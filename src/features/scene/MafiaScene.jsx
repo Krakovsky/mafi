@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { Environment, OrbitControls, Stars, useGLTF, GradientTexture, Cloud } from '@react-three/drei'
 import * as THREE from 'three'
 import {
+  dinoModelUrl,
   lampModelUrl,
   mafiaModelUrl,
   PLAYER_COUNT,
@@ -11,6 +12,7 @@ import {
   treeModelUrl,
 } from '../game/model/constants'
 import { Assassin } from './entities/Assassin'
+import { Dino } from './entities/Dino'
 import { PlayerActor } from './entities/PlayerActor'
 import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
@@ -149,6 +151,7 @@ export function MafiaScene({ players, phase, assassination, showWebcams = true }
         <TownBackdrop />
         <StreetLamp phase={phase} />
         <TreeRing />
+        <Dino position={[5, 0, -25]} />
       </Suspense>
 
       {players.map((player) => (
@@ -172,3 +175,4 @@ useGLTF.preload(mafiaModelUrl)
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)
+useGLTF.preload(dinoModelUrl)

@@ -7,14 +7,22 @@ import '../styles/layout.css'
 import '../styles/client-overlay.css'
 
 export default function ClientPage() {
-  const { players, phase, round, winner, log } = useGameStore()
+  const players = useGameStore((state) => state.players)
+  const phase = useGameStore((state) => state.phase)
+  const round = useGameStore((state) => state.round)
+  const winner = useGameStore((state) => state.winner)
+  const log = useGameStore((state) => state.log)
 
   useRealtimeSync(false)
 
   return (
     <main className="app-shell client-mode">
       <section className="scene-wrap">
-        <MafiaScene players={players} phase={phase} assassination={null} showWebcams />
+        <MafiaScene
+          players={players}
+          assassination={null}
+          showWebcams
+        />
       </section>
 
       <section className="client-overlay">

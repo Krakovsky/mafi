@@ -127,29 +127,30 @@ function WebcamRow({ player, onUpdate }) {
 }
 
 export function AdminControlPanel({ onAssassinationChange }) {
-  const {
-    phase,
-    round,
-    players,
-    winner,
-    log,
-    resetGame,
-    applyClassicRoles,
-    setPhase,
-    setRound,
-    setPlayerRole,
-    setPlayerName,
-    setPlayerNumber,
-    setPlayerWebcamUrl,
-    runNightManual,
-    runDayVoteManual,
-    addLogLine,
-  } = useGameStore()
+  const phase = useGameStore((state) => state.phase)
+  const round = useGameStore((state) => state.round)
+  const players = useGameStore((state) => state.players)
+  const winner = useGameStore((state) => state.winner)
+  const log = useGameStore((state) => state.log)
+  const resetGame = useGameStore((state) => state.resetGame)
+  const applyClassicRoles = useGameStore((state) => state.applyClassicRoles)
+  const setPhase = useGameStore((state) => state.setPhase)
+  const setRound = useGameStore((state) => state.setRound)
+  const setPlayerRole = useGameStore((state) => state.setPlayerRole)
+  const setPlayerName = useGameStore((state) => state.setPlayerName)
+  const setPlayerNumber = useGameStore((state) => state.setPlayerNumber)
+  const setPlayerWebcamUrl = useGameStore((state) => state.setPlayerWebcamUrl)
+  const speechFocusPlayerId = useGameStore((state) => state.speechFocusPlayerId)
+  const setSpeechFocusPlayerId = useGameStore((state) => state.setSpeechFocusPlayerId)
+  const runNightManual = useGameStore((state) => state.runNightManual)
+  const runDayVoteManual = useGameStore((state) => state.runDayVoteManual)
+  const addLogLine = useGameStore((state) => state.addLogLine)
 
   const [nightTargetId, setNightTargetId] = useState('')
   const [doctorSaved, setDoctorSaved] = useState(false)
   const [sheriffCheckId, setSheriffCheckId] = useState('')
   const [dayVoteTargetId, setDayVoteTargetId] = useState('')
+  const [speechTargetId, setSpeechTargetId] = useState('')
   const [manualLine, setManualLine] = useState('')
   const [showPlayers, setShowPlayers] = useState(false)
   const [showWebcams, setShowWebcams] = useState(false)
@@ -173,6 +174,16 @@ export function AdminControlPanel({ onAssassinationChange }) {
   const effectiveNightTargetId = alivePlayers.some((player) => player.id === Number(nightTargetId)) ? nightTargetId : ''
   const effectiveDayVoteTargetId = alivePlayers.some((player) => player.id === Number(dayVoteTargetId)) ? dayVoteTargetId : ''
   const effectiveSheriffCheckId = alivePlayers.some((player) => player.id === Number(sheriffCheckId)) ? sheriffCheckId : ''
+  const effectiveSpeechTargetId = alivePlayers.some((player) => player.id === Number(speechTargetId)) ? speechTargetId : ''
+
+  useEffect(() => {
+    if (speechFocusPlayerId === null || speechFocusPlayerId === undefined) {
+      setSpeechTargetId('')
+      return
+    }
+
+    setSpeechTargetId(String(speechFocusPlayerId))
+  }, [speechFocusPlayerId])
 
   const handleNight = useCallback(() => {
     if (phase !== 'night') {
@@ -354,6 +365,43 @@ export function AdminControlPanel({ onAssassinationChange }) {
         </button>
         <button type="button" className="btn ghost" onClick={resetGame}>
           Новая партия
+        </button>
+      </div>
+
+      <h2 className="section-title">Спич-фокус камеры</h2>
+      <label className="field-label" htmlFor="speech-target">Игрок для спича</label>
+      <select
+        className="field-input"
+        id="speech-target"
+        value={effectiveSpeechTargetId}
+        onChange={(event) => setSpeechTargetId(event.target.value)}
+      >
+        <option value="">Выберите игрока</option>
+        {alivePlayers.map((player) => (
+          <option key={`speech-${player.id}`} value={player.id}>
+            №{player.number} {player.name || `Игрок ${player.id + 1}`}
+          </option>
+        ))}
+      </select>
+
+      <div className="button-row">
+        <button
+          type="button"
+          className="btn action"
+          disabled={!effectiveSpeechTargetId}
+          onClick={() => setSpeechFocusPlayerId(Number(effectiveSpeechTargetId))}
+        >
+          Фокус на спикере
+        </button>
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={() => {
+            setSpeechFocusPlayerId(null)
+            setSpeechTargetId('')
+          }}
+        >
+          Сбросить фокус
         </button>
       </div>
 

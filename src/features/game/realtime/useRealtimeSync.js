@@ -3,6 +3,7 @@ import { io } from 'socket.io-client'
 import { useGameStore } from '../model/gameStore'
 
 let socketRef = null
+const CHANNEL_NAME = 'mafia:state'
 
 function getSocket() {
   const socketUrl = import.meta.env.VITE_SOCKET_URL
@@ -24,53 +25,140 @@ function createClientId() {
   return `${Date.now()}-${Math.round(Math.random() * 1e9)}`
 }
 
+function pickState(state) {
+  return {
+    phase: state.phase,
+    round: state.round,
+    players: state.players,
+    speechFocusPlayerId: state.speechFocusPlayerId,
+    speechFocusEventId: state.speechFocusEventId,
+    winner: state.winner,
+    log: state.log,
+  }
+}
+
 export function useRealtimeSync(isAdmin) {
   useEffect(() => {
     const socket = getSocket()
-    if (!socket) {
+    const canUseBroadcast = typeof window !== 'undefined' && 'BroadcastChannel' in window
+    const channel = !socket && canUseBroadcast ? new window.BroadcastChannel(CHANNEL_NAME) : null
+
+    if (!socket && !channel) {
       return undefined
     }
 
     const clientId = createClientId()
     const store = useGameStore
+    let isApplyingExternalState = false
 
-    const onServerState = (payload) => {
-      if (!payload || payload.sourceClientId === clientId) {
+    const applyStateFromPayload = (payload) => {
+      if (!payload || payload.sourceClientId === clientId || !payload.state) {
         return
       }
 
+      if (payload.targetClientId && payload.targetClientId !== clientId) {
+        return
+      }
+
+      isApplyingExternalState = true
       store.getState().applyExternalState(payload.state)
+      isApplyingExternalState = false
     }
 
-    socket.on('mafia:state', onServerState)
-
-    if (isAdmin) {
-      socket.emit('mafia:state', {
-        sourceClientId: clientId,
-        state: store.getState().exportSnapshot(),
-      })
-    }
-
-    const unsubscribe = store.subscribe((state) => {
+    const emitState = (targetClientId = null) => {
       if (!isAdmin) {
         return
       }
 
-      socket.emit('mafia:state', {
+      const payload = {
         sourceClientId: clientId,
-        state: {
-          phase: state.phase,
-          round: state.round,
-          players: state.players,
-          winner: state.winner,
-          log: state.log,
-        },
+        targetClientId,
+        state: store.getState().exportSnapshot(),
+      }
+
+      if (socket) {
+        socket.emit('mafia:state', payload)
+        return
+      }
+
+      if (channel) {
+        channel.postMessage({ type: 'mafia:state', ...payload })
+      }
+    }
+
+    let unsubscribe = () => {}
+
+    if (socket) {
+      const onServerState = (payload) => {
+        applyStateFromPayload(payload)
+      }
+
+      socket.on('mafia:state', onServerState)
+
+      if (isAdmin) {
+        emitState()
+      }
+
+      unsubscribe = store.subscribe((state) => {
+        if (!isAdmin || isApplyingExternalState) {
+          return
+        }
+
+        socket.emit('mafia:state', {
+          sourceClientId: clientId,
+          state: pickState(state),
+        })
+      })
+
+      return () => {
+        unsubscribe()
+        socket.off('mafia:state', onServerState)
+      }
+    }
+
+    const onChannelMessage = (event) => {
+      const payload = event?.data
+      if (!payload || typeof payload !== 'object') {
+        return
+      }
+
+      if (payload.type === 'mafia:state') {
+        applyStateFromPayload(payload)
+        return
+      }
+
+      if (payload.type === 'mafia:request-state' && isAdmin) {
+        emitState(payload.sourceClientId ?? null)
+      }
+    }
+
+    channel.addEventListener('message', onChannelMessage)
+
+    if (isAdmin) {
+      emitState()
+    } else {
+      channel.postMessage({
+        type: 'mafia:request-state',
+        sourceClientId: clientId,
+      })
+    }
+
+    unsubscribe = store.subscribe((state) => {
+      if (!isAdmin || isApplyingExternalState) {
+        return
+      }
+
+      channel.postMessage({
+        type: 'mafia:state',
+        sourceClientId: clientId,
+        state: pickState(state),
       })
     })
 
     return () => {
       unsubscribe()
-      socket.off('mafia:state', onServerState)
+      channel.removeEventListener('message', onChannelMessage)
+      channel.close()
     }
   }, [isAdmin])
 }

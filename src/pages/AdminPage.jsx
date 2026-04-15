@@ -8,14 +8,18 @@ import '../styles/layout.css'
 
 export default function AdminPage() {
   const [assassination, setAssassination] = useState(null)
-  const { players, phase } = useGameStore()
+  const players = useGameStore((state) => state.players)
 
   useRealtimeSync(true)
 
   return (
     <main className="app-shell admin-mode">
       <section className="scene-wrap">
-        <MafiaScene players={players} phase={phase} assassination={assassination} showWebcams />
+        <MafiaScene
+          players={players}
+          assassination={assassination}
+          showWebcams
+        />
       </section>
 
       <AdminControlPanel onAssassinationChange={setAssassination} />

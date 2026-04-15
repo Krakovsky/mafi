@@ -32,6 +32,8 @@ export const useGameStore = create((set, get) => ({
   phase: 'day',
   round: 1,
   players: buildPlayers(),
+  speechFocusPlayerId: null,
+  speechFocusEventId: 0,
   winner: null,
   log: ['Игра началась. Город просыпается.'],
 
@@ -40,8 +42,25 @@ export const useGameStore = create((set, get) => ({
       phase: 'night',
       round: 1,
       players: buildPlayers(),
+      speechFocusPlayerId: null,
+      speechFocusEventId: 0,
       winner: null,
       log: ['Новая партия началась. Город засыпает.'],
+    })
+  },
+
+  setSpeechFocusPlayerId: (playerId) => {
+    const { players, speechFocusEventId } = get()
+    if (playerId === null || playerId === undefined || playerId === '') {
+      set({ speechFocusPlayerId: null, speechFocusEventId: speechFocusEventId + 1 })
+      return
+    }
+
+    const numericPlayerId = Number(playerId)
+    const target = players.find((player) => player.id === numericPlayerId && player.alive)
+    set({
+      speechFocusPlayerId: target ? numericPlayerId : null,
+      speechFocusEventId: speechFocusEventId + 1,
     })
   },
 
@@ -74,10 +93,16 @@ export const useGameStore = create((set, get) => ({
   },
 
   setPlayerAlive: (playerId, alive) => {
-    const { players } = get()
+    const { players, speechFocusPlayerId } = get()
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, alive } : player))
     const winnerState = evaluateWinner(updatedPlayers)
-    set({ players: updatedPlayers, winner: winnerState, phase: winnerState ? 'ended' : get().phase })
+    const focusedStillAlive = updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
+    set({
+      players: updatedPlayers,
+      speechFocusPlayerId: focusedStillAlive ? speechFocusPlayerId : null,
+      winner: winnerState,
+      phase: winnerState ? 'ended' : get().phase,
+    })
   },
 
   setPlayerName: (playerId, name) => {
@@ -100,7 +125,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   runNightManual: ({ targetId, saved, sheriffCheckId }) => {
-    const { phase, players, winner, round, log } = get()
+    const { phase, players, speechFocusPlayerId, winner, round, log } = get()
     if (phase !== 'night' || winner) {
       return { canAnimate: false, error: 'Нельзя провести ночь в текущей фазе.' }
     }
@@ -138,6 +163,9 @@ export const useGameStore = create((set, get) => ({
 
     set({
       players: updatedPlayers,
+      speechFocusPlayerId: updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
+        ? speechFocusPlayerId
+        : null,
       phase: winnerState ? 'ended' : 'day',
       winner: winnerState,
       log: [...log, ...lines, winnerState ? `Итог: ${winnerState}.` : 'Город просыпается и обсуждает.'],
@@ -150,7 +178,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   runDayVoteManual: (targetId) => {
-    const { phase, players, log, round, winner } = get()
+    const { phase, players, speechFocusPlayerId, log, round, winner } = get()
     if (phase !== 'day' || winner) {
       return
     }
@@ -165,6 +193,9 @@ export const useGameStore = create((set, get) => ({
 
     set({
       players: updatedPlayers,
+      speechFocusPlayerId: updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
+        ? speechFocusPlayerId
+        : null,
       phase: winnerState ? 'ended' : 'night',
       round: winnerState ? round : round + 1,
       winner: winnerState,
@@ -193,13 +224,15 @@ export const useGameStore = create((set, get) => ({
       phase: snapshot.phase,
       round: snapshot.round,
       players: snapshot.players,
+      speechFocusPlayerId: snapshot.speechFocusPlayerId ?? null,
+      speechFocusEventId: snapshot.speechFocusEventId ?? 0,
       winner: snapshot.winner,
       log: Array.isArray(snapshot.log) ? snapshot.log : [],
     })
   },
 
   exportSnapshot: () => {
-    const { phase, round, players, winner, log } = get()
-    return { phase, round, players, winner, log }
+    const { phase, round, players, speechFocusPlayerId, speechFocusEventId, winner, log } = get()
+    return { phase, round, players, speechFocusPlayerId, speechFocusEventId, winner, log }
   },
 }))

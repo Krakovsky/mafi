@@ -1,17 +1,17 @@
-import { Suspense } from 'react'
+import { memo, Suspense } from 'react'
 import { Html } from '@react-three/drei'
-import * as THREE from 'three'
-import { PLAYER_COUNT, PLAYER_RING_RADIUS, ROLE_COLOR } from '../../game/model/constants'
+import { ROLE_COLOR } from '../../game/model/constants'
 import { PlayerFallback } from './PlayerFallback'
 import { PlayerModel } from './PlayerModel'
 
-export function PlayerActor({ player, position, focused, showWebcams }) {
+function PlayerActorBase({ player, position, focused, showWebcams, webcamVisible = true }) {
   const tint = ROLE_COLOR[player.role]
   const [x, y, z] = position
   const facing = Math.atan2(-x, -z)
+  const webcamSrc = (player.webcamUrl || '').trim()
 
-  const VIEWPORT_W = 420*1.4
-  const VIEWPORT_H = 236*1.4
+  const VIEWPORT_W = 420 * 1.4
+  const VIEWPORT_H = 236 * 1.4
 
   const headOffsetX = 0
   const headOffsetY = 2.55
@@ -51,23 +51,48 @@ export function PlayerActor({ player, position, focused, showWebcams }) {
           center
           distanceFactor={5}
           style={{
-            pointerEvents: 'auto',
+            pointerEvents: webcamVisible ? 'auto' : 'none',
             width: VIEWPORT_W,
             borderRadius: 10,
             overflow: 'hidden',
+            opacity: webcamVisible ? 1 : 0,
+            visibility: webcamVisible ? 'visible' : 'hidden',
+            display: webcamVisible ? 'block' : 'none',
+            transition: 'opacity 220ms ease',
+            contain: 'layout paint style',
+            willChange: 'opacity, transform',
           }}
           transform={false}
           occlude={false}
         >
           <div className="webcam-container" style={{ width: VIEWPORT_W }}>
-            <iframe
-              src={player.webcamUrl || 'https://vdo.ninja/?view=Wjik7HN?autostart=true&autohide=true&camera=true&microphone=false&allowfullscreen=true'}
-              title={`Player ${player.number} webcam`}
-              width={VIEWPORT_W}
-              height={VIEWPORT_H}
-              allow="camera; autostart; autohide; microphone; fullscreen"
-              style={{ border: 'none', borderRadius: '10px 10px 0 0', background: '#1a1a1a', display: 'block' }}
-            />
+            {webcamSrc ? (
+              <iframe
+                src={webcamSrc}
+                title={`Player ${player.number} webcam`}
+                width={VIEWPORT_W}
+                height={VIEWPORT_H}
+                loading="lazy"
+                allow="camera; microphone; autoplay; fullscreen"
+                style={{ border: 'none', borderRadius: '10px 10px 0 0', background: '#1a1a1a', display: 'block' }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: VIEWPORT_W,
+                  height: VIEWPORT_H,
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: '10px 10px 0 0',
+                  background: 'linear-gradient(160deg, #1a1f2e 0%, #0f131d 100%)',
+                  color: '#9aa6be',
+                  fontSize: 17,
+                  letterSpacing: 0.3,
+                }}
+              >
+                Webcam URL не задан
+              </div>
+            )}
             <div className="webcam-label" style={{
               width: VIEWPORT_W,
               padding: '5px 8px',
@@ -87,3 +112,13 @@ export function PlayerActor({ player, position, focused, showWebcams }) {
     </>
   )
 }
+
+export const PlayerActor = memo(PlayerActorBase, (prev, next) => {
+  return (
+    prev.player === next.player &&
+    prev.position === next.position &&
+    prev.focused === next.focused &&
+    prev.showWebcams === next.showWebcams &&
+    prev.webcamVisible === next.webcamVisible
+  )
+})

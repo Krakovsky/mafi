@@ -4,6 +4,9 @@ import { PHASE_TEXT, PLAYER_COUNT, ROLE_SET } from './constants'
 function buildPlayers() {
   return Array.from({ length: PLAYER_COUNT }, (_, id) => ({
     id,
+    name: '',
+    number: id + 1,
+    webcamUrl: '',
     role: 'civilian',
     alive: true,
   }))
@@ -75,6 +78,25 @@ export const useGameStore = create((set, get) => ({
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, alive } : player))
     const winnerState = evaluateWinner(updatedPlayers)
     set({ players: updatedPlayers, winner: winnerState, phase: winnerState ? 'ended' : get().phase })
+  },
+
+  setPlayerName: (playerId, name) => {
+    const { players } = get()
+    const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, name } : player))
+    set({ players: updatedPlayers })
+  },
+
+  setPlayerNumber: (playerId, number) => {
+    const { players } = get()
+    const safeNumber = Number.isFinite(number) ? Math.max(1, Math.floor(number)) : 1
+    const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, number: safeNumber } : player))
+    set({ players: updatedPlayers })
+  },
+
+  setPlayerWebcamUrl: (playerId, webcamUrl) => {
+    const { players } = get()
+    const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, webcamUrl } : player))
+    set({ players: updatedPlayers })
   },
 
   runNightManual: ({ targetId, saved, sheriffCheckId }) => {

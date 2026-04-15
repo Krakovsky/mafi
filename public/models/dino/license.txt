@@ -1,0 +1,11 @@
+Model Information:
+* title:	Looping Animation of T- Rex Dinosaur Model
+* source:	https://sketchfab.com/3d-models/looping-animation-of-t-rex-dinosaur-model-aa03050c927c44dcbb1e02c45f8b2c97
+* author:	LasquetiSpice (https://sketchfab.com/LasquetiSpice)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Looping Animation of T- Rex Dinosaur Model" (https://sketchfab.com/3d-models/looping-animation-of-t-rex-dinosaur-model-aa03050c927c44dcbb1e02c45f8b2c97) by LasquetiSpice (https://sketchfab.com/LasquetiSpice) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

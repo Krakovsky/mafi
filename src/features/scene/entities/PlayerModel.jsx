@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
-import { useGLTF, useTexture } from '@react-three/drei'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFBX, useAnimations, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { mafiaModelUrl } from '../../game/model/constants'
+
+const ANIM_FBX_URL = '/models/maf/anim.fbx'
 
 export function PlayerModel({ tint, alive }) {
-  const gltf = useGLTF(mafiaModelUrl)
+  const fbx = useFBX(ANIM_FBX_URL)
+  const groupRef = useRef()
   const textures = useTexture({
     mat2: '/models/maf/textures/mat_2_baseColor.png',
     mat3: '/models/maf/textures/mat_3_baseColor.png',
@@ -14,7 +16,7 @@ export function PlayerModel({ tint, alive }) {
     mat6: '/models/maf/textures/mat_6_baseColor.png',
   })
 
-  const { object, scale } = useMemo(() => {
+  const { cloned, normalizedScale } = useMemo(() => {
     Object.values(textures).forEach((texture) => {
       if (!texture) {
         return
@@ -38,22 +40,21 @@ export function PlayerModel({ tint, alive }) {
       return texturePool[materialIndex % texturePool.length] || null
     }
 
-    const cloned = skeletonClone(gltf.scene)
-    const box = new THREE.Box3().setFromObject(cloned)
+    const c = skeletonClone(fbx)
+
+    const box = new THREE.Box3().setFromObject(c)
     const size = new THREE.Vector3()
     const center = new THREE.Vector3()
     box.getSize(size)
     box.getCenter(center)
 
     const maxAxis = Math.max(size.x, size.y, size.z) || 1
-    const normalizedScale = 0.034 / maxAxis
+    const scale = 2.2 / maxAxis
 
-    cloned.position.x -= center.x
-    cloned.position.y -= box.min.y
-    cloned.position.z -= center.z
+    c.position.set(-center.x, -box.min.y, -center.z)
 
     let meshIndex = 0
-    cloned.traverse((node) => {
+    c.traverse((node) => {
       if (!node.isMesh || !node.material) {
         return
       }
@@ -107,12 +108,27 @@ export function PlayerModel({ tint, alive }) {
       meshIndex += 1
     })
 
-    return { object: cloned, scale: normalizedScale }
-  }, [gltf.scene, textures])
+    return { cloned: c, normalizedScale: scale }
+  }, [fbx, textures])
+
+  const { actions } = useAnimations(fbx.animations, groupRef)
+
+  useEffect(() => {
+    const names = Object.keys(actions)
+    if (names.length > 0) {
+      const action = actions[names[0]]
+      if (action) {
+        action.reset().fadeIn(0.3).play()
+      }
+    }
+    return () => {
+      Object.values(actions).forEach((action) => action?.fadeOut(0.3))
+    }
+  }, [actions])
 
   return (
-    <group scale={alive ? scale : scale * 0.96}>
-      <primitive object={object} />
+    <group ref={groupRef} scale={alive ? normalizedScale : normalizedScale * 0.96}>
+      <primitive object={cloned} />
       <mesh position={[0, 0.2, 0]}>
         <sphereGeometry args={[0.18, 16, 16]} />
         <meshStandardMaterial color={tint} emissive={tint} emissiveIntensity={alive ? 0.24 : 0.08} />

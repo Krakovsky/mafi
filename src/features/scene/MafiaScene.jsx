@@ -1,11 +1,10 @@
 import { memo, Suspense, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Cloud, Environment, OrbitControls, Stars, useGLTF } from '@react-three/drei'
+import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   dinoModelUrl,
   lampModelUrl,
-  mafiaModelUrl,
   PLAYER_COUNT,
   PLAYER_RING_RADIUS,
   townModelUrl,
@@ -415,7 +414,7 @@ function MafiaSceneInner({
 
 export const MafiaScene = memo(MafiaSceneInner)
 
-useGLTF.preload(mafiaModelUrl)
+useFBX.preload('/models/maf/anim.fbx')
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)

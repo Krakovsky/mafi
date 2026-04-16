@@ -101,9 +101,8 @@ function SunMoonCelestials({ dayBlendRef }) {
   )
 }
 
-function SceneAtmosphere() {
+function SceneAtmosphere({ dayBlendRef }) {
   const phaseRef = useRef(useGameStore.getState().phase)
-  const dayBlendRef = useRef(phaseRef.current === 'day' ? 1 : 0)
 
   const daySky = useMemo(() => new THREE.Color('#87ceeb'), [])
   const nightSky = useMemo(() => new THREE.Color('#0a1628'), [])
@@ -127,7 +126,7 @@ function SceneAtmosphere() {
 
   useFrame((state, delta) => {
     phaseRef.current = useGameStore.getState().phase
-    const targetDayBlend = phaseRef.current === 'day' ? 1 : 0
+    const targetDayBlend = phaseRef.current === 'night' ? 0 : 1
     dayBlendRef.current = THREE.MathUtils.damp(dayBlendRef.current, targetDayBlend, 3.2, delta)
     const dayBlend = dayBlendRef.current
 
@@ -198,6 +197,32 @@ function SceneAtmosphere() {
       <Cloud ref={cloudRef} opacity={0.4} speed={0.2} width={40} depth={1.5} segments={20} position={[0, 15, -25]} />
     </>
   )
+}
+
+function DeferredDeathTrigger({ dayBlendRef, queuedDeathTargetRef, deathEventRef }) {
+  useFrame(() => {
+    const targetId = queuedDeathTargetRef.current
+    if (!Number.isInteger(targetId)) {
+      return
+    }
+
+    const phase = useGameStore.getState().phase
+    if (phase === 'night') {
+      return
+    }
+
+    if (dayBlendRef.current < 0.995) {
+      return
+    }
+
+    queuedDeathTargetRef.current = null
+    deathEventRef.current = {
+      eventId: deathEventRef.current.eventId + 1,
+      targetId,
+    }
+  })
+
+  return null
 }
 
 function SpeechCameraDirector({ playerSlots, controlsRef }) {
@@ -361,6 +386,9 @@ function MafiaSceneInner({
   const controlsRef = useRef(null)
   const deathEventRef = useRef({ eventId: 0, targetId: null })
   const pendingNightKillRef = useRef(null)
+  const queuedDeathTargetRef = useRef(null)
+  const dayBlendRef = useRef(useGameStore.getState().phase === 'night' ? 0 : 1)
+  const players = useGameStore((state) => state.players)
 
   useEffect(() => {
     const store = useGameStore
@@ -385,10 +413,7 @@ function MafiaSceneInner({
         if (line.includes('выбыл после ночного выстрела') && Number.isInteger(pendingNightKillRef.current)) {
           const targetId = pendingNightKillRef.current
           pendingNightKillRef.current = null
-          deathEventRef.current = {
-            eventId: deathEventRef.current.eventId + 1,
-            targetId,
-          }
+          queuedDeathTargetRef.current = targetId
         }
       }
     })
@@ -428,7 +453,12 @@ function MafiaSceneInner({
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         camera={{ position: [0, 11, 34], fov: 42 }}
       >
-        <SceneAtmosphere />
+        <SceneAtmosphere dayBlendRef={dayBlendRef} />
+        <DeferredDeathTrigger
+          dayBlendRef={dayBlendRef}
+          queuedDeathTargetRef={queuedDeathTargetRef}
+          deathEventRef={deathEventRef}
+        />
         <SpeechCameraDirector
           playerSlots={playerSlots}
           controlsRef={controlsRef}
@@ -449,7 +479,7 @@ function MafiaSceneInner({
             playerId={index}
             position={pos}
             showWebcams={showWebcams}
-            webcamVisible
+            webcamVisible={Boolean(players[index]?.alive)}
           />
         ))}
 

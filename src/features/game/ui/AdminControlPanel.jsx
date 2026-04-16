@@ -201,35 +201,10 @@ export function AdminControlPanel({ assassinationRef }) {
     if (!result || result.error) {
       return
     }
-
-    if (!result.canAnimate) {
-      setNightTargetId('')
-      setDoctorSaved(false)
-      setSheriffCheckId('')
-      assassinationRef.current = null
-      return
-    }
-
-    const duration = 2500
-    const startedAt = performance.now()
-
-    const animate = (currentTime) => {
-      const progress = Math.min((currentTime - startedAt) / duration, 1)
-      assassinationRef.current = { targetId: result.targetId, progress }
-
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate)
-      } else {
-        timeoutRef.current = window.setTimeout(() => {
-          assassinationRef.current = null
-          setNightTargetId('')
-          setDoctorSaved(false)
-          setSheriffCheckId('')
-        }, 260)
-      }
-    }
-
-    frameRef.current = requestAnimationFrame(animate)
+    setNightTargetId('')
+    setDoctorSaved(false)
+    setSheriffCheckId('')
+    assassinationRef.current = null
   }, [doctorSaved, effectiveNightTargetId, effectiveSheriffCheckId, assassinationRef, phase, runNightManual])
 
   const handleDayVote = useCallback(() => {

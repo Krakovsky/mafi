@@ -41,7 +41,7 @@ function LampPost({ position, rotation }) {
     const localScale = 6 / (Math.max(size.x, size.y, size.z) || 1)
 
     cloned.position.x -= center.x
-    cloned.position.y -= box.min.y
+    cloned.position.y -= box.min.y - 2
     cloned.position.z -= center.z
 
     cloned.traverse((node) => {

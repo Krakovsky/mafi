@@ -51,6 +51,19 @@ export function useRealtimeSync(isAdmin) {
     const store = useGameStore
     let isApplyingExternalState = false
 
+    let pendingPayload = null
+    let applyQueued = false
+
+    const flushPendingState = () => {
+      applyQueued = false
+      const stateToApply = pendingPayload
+      pendingPayload = null
+      if (!stateToApply) return
+      isApplyingExternalState = true
+      store.getState().applyExternalState(stateToApply)
+      isApplyingExternalState = false
+    }
+
     const applyStateFromPayload = (payload) => {
       if (!payload || payload.sourceClientId === clientId || !payload.state) {
         return
@@ -60,9 +73,11 @@ export function useRealtimeSync(isAdmin) {
         return
       }
 
-      isApplyingExternalState = true
-      store.getState().applyExternalState(payload.state)
-      isApplyingExternalState = false
+      pendingPayload = payload.state
+      if (!applyQueued) {
+        applyQueued = true
+        requestAnimationFrame(flushPendingState)
+      }
     }
 
     const emitState = (targetClientId = null) => {
@@ -87,6 +102,17 @@ export function useRealtimeSync(isAdmin) {
     }
 
     let unsubscribe = () => {}
+    let emitScheduled = false
+
+    const scheduleEmit = () => {
+      if (emitScheduled) return
+      emitScheduled = true
+      requestAnimationFrame(() => {
+        emitScheduled = false
+        if (!isAdmin || isApplyingExternalState) return
+        emitState()
+      })
+    }
 
     if (socket) {
       const onServerState = (payload) => {
@@ -99,15 +125,11 @@ export function useRealtimeSync(isAdmin) {
         emitState()
       }
 
-      unsubscribe = store.subscribe((state) => {
+      unsubscribe = store.subscribe(() => {
         if (!isAdmin || isApplyingExternalState) {
           return
         }
-
-        socket.emit('mafia:state', {
-          sourceClientId: clientId,
-          state: pickState(state),
-        })
+        scheduleEmit()
       })
 
       return () => {
@@ -143,16 +165,11 @@ export function useRealtimeSync(isAdmin) {
       })
     }
 
-    unsubscribe = store.subscribe((state) => {
+    unsubscribe = store.subscribe(() => {
       if (!isAdmin || isApplyingExternalState) {
         return
       }
-
-      channel.postMessage({
-        type: 'mafia:state',
-        sourceClientId: clientId,
-        state: pickState(state),
-      })
+      scheduleEmit()
     })
 
     return () => {

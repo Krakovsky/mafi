@@ -1,13 +1,48 @@
-export function Assassin({ targetPosition, progress }) {
-  const start = [-15, 0, targetPosition[2] - 2.5]
-  const end = [targetPosition[0] - 1.4, 0, targetPosition[2] + 0.25]
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 
-  const x = start[0] + (end[0] - start[0]) * progress
-  const z = start[2] + (end[2] - start[2]) * progress
-  const facing = Math.atan2(targetPosition[0] - x, targetPosition[2] - z)
+export function Assassin({ assassinationRef, positions }) {
+  const groupRef = useRef(null)
+  const muzzleRef = useRef(null)
+
+  useFrame(() => {
+    const group = groupRef.current
+    if (!group) return
+
+    const data = assassinationRef.current
+    if (!data || data.targetId === null || data.targetId === undefined) {
+      group.visible = false
+      return
+    }
+
+    const targetPosition = positions[data.targetId]
+    if (!targetPosition) {
+      group.visible = false
+      return
+    }
+
+    const progress = data.progress
+    group.visible = true
+
+    const startX = -15
+    const startZ = targetPosition[2] - 2.5
+    const endX = targetPosition[0] - 1.4
+    const endZ = targetPosition[2] + 0.25
+
+    const x = startX + (endX - startX) * progress
+    const z = startZ + (endZ - startZ) * progress
+    const facing = Math.atan2(targetPosition[0] - x, targetPosition[2] - z)
+
+    group.position.set(x, 0, z)
+    group.rotation.set(0, facing, 0)
+
+    if (muzzleRef.current) {
+      muzzleRef.current.visible = progress > 0.78
+    }
+  })
 
   return (
-    <group position={[x, 0, z]} rotation={[0, facing, 0]}>
+    <group ref={groupRef} visible={false}>
       <mesh position={[0, 1.05, 0]}>
         <sphereGeometry args={[0.34, 20, 20]} />
         <meshStandardMaterial color="#c5c7cd" />
@@ -20,13 +55,10 @@ export function Assassin({ targetPosition, progress }) {
         <boxGeometry args={[0.34, 0.1, 0.1]} />
         <meshStandardMaterial color="#111318" />
       </mesh>
-
-      {progress > 0.78 ? (
-        <mesh position={[0.58, 0.62, 0.3]}>
-          <sphereGeometry args={[0.16, 18, 18]} />
-          <meshStandardMaterial color="#ff9e2e" emissive="#ff9e2e" emissiveIntensity={2} />
-        </mesh>
-      ) : null}
+      <mesh ref={muzzleRef} position={[0.58, 0.62, 0.3]} visible={false}>
+        <sphereGeometry args={[0.16, 18, 18]} />
+        <meshStandardMaterial color="#ff9e2e" emissive="#ff9e2e" emissiveIntensity={2} />
+      </mesh>
     </group>
   )
 }

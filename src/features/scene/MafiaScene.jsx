@@ -1,4 +1,4 @@
-import { memo, Suspense, useMemo, useRef } from 'react'
+import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -12,6 +12,7 @@ import {
 } from '../game/model/constants'
 import { useGameStore } from '../game/model/gameStore'
 import { Assassin } from './entities/Assassin'
+import { DeathAnimation } from './entities/DeathAnimation'
 import { Dino } from './entities/Dino'
 import { PlayerActor } from './entities/PlayerActor'
 import { StreetLamp } from './environment/StreetLamp'
@@ -206,11 +207,11 @@ function SpeechCameraDirector({ playerSlots, controlsRef }) {
     const base = headRef.current.set(position[0], 0, position[2])
     const forward = forwardRef.current.set(0, 0, 1).applyAxisAngle(UP_AXIS, facing).normalize()
 
-    outPosition.copy(base).addScaledVector(forward, 3).addScaledVector(UP_AXIS, 2.5)
-    outTarget.copy(base).addScaledVector(UP_AXIS, 1.8)
+    outPosition.copy(base).addScaledVector(forward, 1).addScaledVector(UP_AXIS, 1.8)
+    outTarget.copy(base).addScaledVector(UP_AXIS, 2)
 
     return {
-      fov: 32,
+      fov: 18,
       focusId: safeFocusId,
     }
   }
@@ -332,35 +333,69 @@ function SpeechCameraDirector({ playerSlots, controlsRef }) {
 
 
 function MafiaSceneInner({
-  players,
-  assassination,
+  assassinationRef,
   showWebcams = true,
 }) {
   const controlsRef = useRef(null)
+  const deathEventRef = useRef({ eventId: 0, targetId: null })
+  const pendingNightKillRef = useRef(null)
+
+  useEffect(() => {
+    const store = useGameStore
+
+    const unsubscribe = store.subscribe((state, prevState) => {
+      const nextLog = Array.isArray(state.log) ? state.log : []
+      const prevLog = Array.isArray(prevState?.log) ? prevState.log : []
+
+      if (nextLog.length <= prevLog.length) {
+        return
+      }
+
+      for (let index = prevLog.length; index < nextLog.length; index += 1) {
+        const line = String(nextLog[index] || '')
+
+        const selectedMatch = line.match(/Ночью мафия выбрала Игрока\s+(\d+)\./)
+        if (selectedMatch) {
+          pendingNightKillRef.current = Number(selectedMatch[1]) - 1
+          continue
+        }
+
+        if (line.includes('выбыл после ночного выстрела') && Number.isInteger(pendingNightKillRef.current)) {
+          const targetId = pendingNightKillRef.current
+          pendingNightKillRef.current = null
+          deathEventRef.current = {
+            eventId: deathEventRef.current.eventId + 1,
+            targetId,
+          }
+        }
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
+  }, [])
 
   const positions = useMemo(() => {
-    return players.map((_, index) => {
+    return Array.from({ length: PLAYER_COUNT }, (_, index) => {
       const angle = (index / PLAYER_COUNT) * Math.PI * 2
       return [Math.cos(angle) * PLAYER_RING_RADIUS, 0, Math.sin(angle) * PLAYER_RING_RADIUS]
     })
-  }, [players])
+  }, [])
 
   const playerSlots = useMemo(() => {
     const slots = new Map()
-    players.forEach((player, index) => {
-      const position = positions[index] ?? [0, 0, 0]
+    for (let index = 0; index < PLAYER_COUNT; index++) {
+      const position = positions[index]
       const [x, , z] = position
-      slots.set(player.id, {
+      slots.set(index, {
         position,
         facing: Math.atan2(-x, -z),
       })
-    })
+    }
     return slots
-  }, [players, positions])
+  }, [positions])
 
-
-
-  const targetPosition = assassination ? positions[assassination.targetId] : null
 
   return (
     <>
@@ -385,18 +420,21 @@ function MafiaSceneInner({
           <Dino position={[5, 0, -25]} />
         </Suspense>
 
-        {players.map((player) => (
+        {positions.map((pos, index) => (
           <PlayerActor
-            key={player.id}
-            player={player}
-            position={positions[player.id]}
-            focused={assassination?.targetId === player.id}
+            key={index}
+            playerId={index}
+            position={pos}
             showWebcams={showWebcams}
             webcamVisible
           />
         ))}
 
-        {assassination && targetPosition ? <Assassin targetPosition={targetPosition} progress={assassination.progress} /> : null}
+        <Assassin assassinationRef={assassinationRef} positions={positions} />
+        <DeathAnimation
+          deathEventRef={deathEventRef}
+          positions={positions}
+        />
 
         <OrbitControls
           ref={controlsRef}
@@ -415,6 +453,7 @@ function MafiaSceneInner({
 export const MafiaScene = memo(MafiaSceneInner)
 
 useFBX.preload('/models/maf/anim.fbx')
+useFBX.preload('/models/maf/dying.fbx')
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)

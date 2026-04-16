@@ -1,6 +1,6 @@
 import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF } from '@react-three/drei'
+import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   dinoModelUrl,
@@ -15,6 +15,7 @@ import { Assassin } from './entities/Assassin'
 import { DeathAnimation } from './entities/DeathAnimation'
 import { Dino } from './entities/Dino'
 import { PlayerActor } from './entities/PlayerActor'
+import { ParkZone } from './environment/ParkZone'
 import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
@@ -29,10 +30,31 @@ function easeInOutCubic(t) {
 }
 
 function ProceduralGround() {
+  const textures = useTexture({
+    map: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_diff_1k.jpg',
+    normalMap: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_nor_gl_1k.jpg',
+    roughnessMap: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_arm_1k.jpg',
+  })
+
+  textures.map.wrapS = textures.map.wrapT = THREE.RepeatWrapping
+  textures.normalMap.wrapS = textures.normalMap.wrapT = THREE.RepeatWrapping
+  textures.roughnessMap.wrapS = textures.roughnessMap.wrapT = THREE.RepeatWrapping
+
+  const repeat = 8
+  textures.map.repeat.set(repeat, repeat)
+  textures.normalMap.repeat.set(repeat, repeat)
+  textures.roughnessMap.repeat.set(repeat, repeat)
+
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
       <circleGeometry args={[45, 64]} />
-      <meshStandardMaterial color="#2a2a2a" roughness={0.9} />
+      <meshStandardMaterial
+        map={textures.map}
+        normalMap={textures.normalMap}
+        roughnessMap={textures.roughnessMap}
+        normalScale={new THREE.Vector2(0.8, 0.8)}
+        roughness={0.9}
+      />
     </mesh>
   )
 }
@@ -414,6 +436,7 @@ function MafiaSceneInner({
         <ProceduralGround />
 
         <Suspense fallback={null}>
+          <ParkZone />
           <TownBackdrop />
           <StreetLamp />
           <TreeRing />

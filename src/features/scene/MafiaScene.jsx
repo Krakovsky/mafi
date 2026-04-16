@@ -14,6 +14,7 @@ import { useGameStore } from '../game/model/gameStore'
 import { Assassin } from './entities/Assassin'
 import { Dino } from './entities/Dino'
 import { PlayerActor } from './entities/PlayerActor'
+import { ParkZone } from './environment/ParkZone'
 import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
@@ -400,6 +401,7 @@ function MafiaSceneInner({
         <ProceduralGround />
 
         <Suspense fallback={null}>
+          <ParkZone />
           <TownBackdrop />
           <StreetLamp />
           <TreeRing />

@@ -32,6 +32,7 @@ export const useGameStore = create((set, get) => ({
   phase: 'day',
   round: 1,
   players: buildPlayers(),
+  pendingNightResult: null,
   speechFocusPlayerId: null,
   speechFocusEventId: 0,
   winner: null,
@@ -42,6 +43,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'night',
       round: 1,
       players: buildPlayers(),
+      pendingNightResult: null,
       speechFocusPlayerId: null,
       speechFocusEventId: 0,
       winner: null,
@@ -77,7 +79,61 @@ export const useGameStore = create((set, get) => ({
   },
 
   setPhase: (phase) => {
-    const { log } = get()
+    const {
+      log,
+      players,
+      pendingNightResult,
+      speechFocusPlayerId,
+      round,
+      winner,
+    } = get()
+
+    if (phase === 'day' && pendingNightResult && !winner) {
+      const { targetId, saved, sheriffCheckId } = pendingNightResult
+      const updatedPlayers = players.map((player) => {
+        if (!saved && player.id === targetId) {
+          return { ...player, alive: false }
+        }
+        return player
+      })
+
+      const sheriffCheck =
+        sheriffCheckId === '' || sheriffCheckId === null || sheriffCheckId === undefined
+          ? null
+          : updatedPlayers.find((player) => player.id === sheriffCheckId)
+
+      const lines = []
+      if (saved) {
+        lines.push(`Доктор спас Игрока ${targetId + 1}. Выстрел сорван.`)
+      } else {
+        lines.push(`Игрок ${targetId + 1} выбыл после ночного выстрела.`)
+      }
+
+      if (sheriffCheck) {
+        const verdict = sheriffCheck.role === 'mafia' ? 'мафия' : 'не мафия'
+        lines.push(`Шериф проверил Игрока ${sheriffCheck.id + 1}: ${verdict}.`)
+      }
+
+      const winnerState = evaluateWinner(updatedPlayers)
+
+      set({
+        phase: winnerState ? 'ended' : 'day',
+        players: updatedPlayers,
+        pendingNightResult: null,
+        speechFocusPlayerId: updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
+          ? speechFocusPlayerId
+          : null,
+        winner: winnerState,
+        log: [
+          ...log,
+          `Фаза изменена вручную: ${PHASE_TEXT.day}.`,
+          ...lines,
+          winnerState ? `Итог: ${winnerState}.` : 'Город просыпается и обсуждает.',
+        ],
+      })
+      return
+    }
+
     set({ phase, winner: phase === 'ended' ? get().winner : null, log: [...log, `Фаза изменена вручную: ${PHASE_TEXT[phase]}.`] })
   },
 
@@ -152,44 +208,21 @@ export const useGameStore = create((set, get) => ({
       return { canAnimate: false, error: 'Выберите живую цель для ночи.' }
     }
 
-    const sheriffCheck =
-      sheriffCheckId === '' || sheriffCheckId === null || sheriffCheckId === undefined
-        ? null
-        : players.find((player) => player.id === sheriffCheckId && player.alive)
-
-    const updatedPlayers = players.map((player) => {
-      if (!saved && player.id === targetId) {
-        return { ...player, alive: false }
-      }
-      return player
-    })
-
-    const lines = [`Раунд ${round}. Ночью мафия выбрала Игрока ${targetId + 1}.`]
-    if (saved) {
-      lines.push(`Доктор спас Игрока ${targetId + 1}. Выстрел сорван.`)
-    } else {
-      lines.push(`Игрок ${targetId + 1} выбыл после ночного выстрела.`)
-    }
-
-    if (sheriffCheck) {
-      const verdict = sheriffCheck.role === 'mafia' ? 'мафия' : 'не мафия'
-      lines.push(`Шериф проверил Игрока ${sheriffCheck.id + 1}: ${verdict}.`)
-    }
-
-    const winnerState = evaluateWinner(updatedPlayers)
-
     set({
-      players: updatedPlayers,
-      speechFocusPlayerId: updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
-        ? speechFocusPlayerId
-        : null,
-      phase: winnerState ? 'ended' : 'day',
-      winner: winnerState,
-      log: [...log, ...lines, winnerState ? `Итог: ${winnerState}.` : 'Город просыпается и обсуждает.'],
+      pendingNightResult: {
+        targetId,
+        saved,
+        sheriffCheckId: sheriffCheckId ?? null,
+        round,
+      },
+      speechFocusPlayerId,
+      phase: 'night',
+      winner,
+      log: [...log, `Раунд ${round}. Ночью мафия выбрала Игрока ${targetId + 1}. Ожидание наступления дня.`],
     })
 
     return {
-      canAnimate: !saved,
+      canAnimate: false,
       targetId,
     }
   },
@@ -243,6 +276,7 @@ export const useGameStore = create((set, get) => ({
 
     if (snapshot.phase !== current.phase) { patch.phase = snapshot.phase; hasChanges = true }
     if (snapshot.round !== current.round) { patch.round = snapshot.round; hasChanges = true }
+    if ((snapshot.pendingNightResult ?? null) !== (current.pendingNightResult ?? null)) { patch.pendingNightResult = snapshot.pendingNightResult ?? null; hasChanges = true }
     if ((snapshot.speechFocusPlayerId ?? null) !== current.speechFocusPlayerId) { patch.speechFocusPlayerId = snapshot.speechFocusPlayerId ?? null; hasChanges = true }
     if ((snapshot.speechFocusEventId ?? 0) !== current.speechFocusEventId) { patch.speechFocusEventId = snapshot.speechFocusEventId ?? 0; hasChanges = true }
     if (snapshot.winner !== current.winner) { patch.winner = snapshot.winner; hasChanges = true }
@@ -277,7 +311,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   exportSnapshot: () => {
-    const { phase, round, players, speechFocusPlayerId, speechFocusEventId, winner, log } = get()
-    return { phase, round, players, speechFocusPlayerId, speechFocusEventId, winner, log }
+    const { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, winner, log } = get()
+    return { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, winner, log }
   },
 }))

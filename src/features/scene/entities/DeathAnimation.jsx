@@ -1,52 +1,49 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAnimations, useFBX } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { useGameStore } from '../../game/model/gameStore'
 
 const DYING_FBX_URL = '/models/maf/dying.fbx'
 
-export function DeathAnimation({ deathEventRef, positions }) {
-  const source = useFBX(DYING_FBX_URL)
-  const groupRef = useRef(null)
-  const lastEventIdRef = useRef(0)
-  const hiddenPlayerRef = useRef(null)
-  const { scene } = useThree()
+function buildDeathModel(source) {
+  const cloned = skeletonClone(source)
 
-  const model = useMemo(() => {
-    const cloned = skeletonClone(source)
+  const box = new THREE.Box3().setFromObject(cloned)
+  const size = new THREE.Vector3()
+  const center = new THREE.Vector3()
+  box.getSize(size)
+  box.getCenter(center)
 
-    const box = new THREE.Box3().setFromObject(cloned)
-    const size = new THREE.Vector3()
-    const center = new THREE.Vector3()
-    box.getSize(size)
-    box.getCenter(center)
+  const maxAxis = Math.max(size.x, size.y, size.z) || 1
+  const scale = 2.2 / maxAxis
 
-    const maxAxis = Math.max(size.x, size.y, size.z) || 1
-    const scale = 2.2 / maxAxis
+  cloned.position.set(-center.x, -box.min.y, -center.z)
 
-    cloned.position.set(-center.x, -box.min.y, -center.z)
+  cloned.traverse((node) => {
+    if (!node.isMesh || !node.material) {
+      return
+    }
 
-    cloned.traverse((node) => {
-      if (!node.isMesh || !node.material) {
-        return
+    const materials = Array.isArray(node.material) ? node.material : [node.material]
+    materials.forEach((mat) => {
+      if (mat) {
+        mat.side = THREE.FrontSide
+        mat.needsUpdate = true
       }
-
-      const materials = Array.isArray(node.material) ? node.material : [node.material]
-      materials.forEach((mat) => {
-        if (mat) {
-          mat.side = THREE.FrontSide
-          mat.needsUpdate = true
-        }
-      })
-
-      node.castShadow = true
-      node.receiveShadow = true
     })
 
-    return { object: cloned, scale }
-  }, [source])
+    node.castShadow = true
+    node.receiveShadow = true
+  })
 
+  return { object: cloned, scale }
+}
+
+function DeathCorpse({ source, event }) {
+  const groupRef = useRef(null)
+  const model = useMemo(() => buildDeathModel(source), [source])
   const { actions, mixer } = useAnimations(source.animations, groupRef)
 
   useEffect(() => {
@@ -60,19 +57,70 @@ export function DeathAnimation({ deathEventRef, positions }) {
       return
     }
 
+    action.reset()
     action.setLoop(THREE.LoopOnce, 1)
     action.clampWhenFinished = true
+    action.enabled = true
+    action.timeScale = 1
     action.play()
-    mixer.update(0)
-    action.stop()
-  }, [actions, mixer])
+  }, [actions])
 
-  useFrame(() => {
-    const group = groupRef.current
-    if (!group) {
+  useFrame((_, delta) => {
+    if (mixer) {
+      mixer.update(delta)
+    }
+  })
+
+  return (
+    <group
+      ref={groupRef}
+      position={event.position}
+      rotation={[0, event.rotationY, 0]}
+      scale={model.scale}
+    >
+      <primitive object={model.object} />
+    </group>
+  )
+}
+
+export function DeathAnimation({ deathEventRef, positions }) {
+  const source = useFBX(DYING_FBX_URL)
+  const players = useGameStore((state) => state.players)
+  const [events, setEvents] = useState([])
+  const lastEventIdRef = useRef(0)
+  const hiddenPlayersRef = useRef(new Set())
+  const { scene } = useThree()
+
+  useEffect(() => {
+    return () => {
+      hiddenPlayersRef.current.forEach((playerId) => {
+        const group = scene.getObjectByName(`player-actor-${playerId}`)
+        if (group) {
+          group.visible = true
+        }
+      })
+      hiddenPlayersRef.current.clear()
+    }
+  }, [scene])
+
+  useEffect(() => {
+    const everyoneAlive = players.length > 0 && players.every((player) => player.alive)
+    if (!everyoneAlive) {
       return
     }
 
+    hiddenPlayersRef.current.forEach((playerId) => {
+      const group = scene.getObjectByName(`player-actor-${playerId}`)
+      if (group) {
+        group.visible = true
+      }
+    })
+    hiddenPlayersRef.current.clear()
+    setEvents([])
+    lastEventIdRef.current = 0
+  }, [players, scene])
+
+  useFrame(() => {
     const ev = deathEventRef.current
     if (!ev || ev.eventId === lastEventIdRef.current) {
       return
@@ -85,43 +133,37 @@ export function DeathAnimation({ deathEventRef, positions }) {
 
     lastEventIdRef.current = eventId
 
-    if (hiddenPlayerRef.current !== null) {
-      const prevGroup = scene.getObjectByName(`player-actor-${hiddenPlayerRef.current}`)
-      if (prevGroup) {
-        prevGroup.visible = true
-      }
-    }
-
     const victimGroup = scene.getObjectByName(`player-actor-${targetId}`)
     if (victimGroup) {
       victimGroup.visible = false
+      hiddenPlayersRef.current.add(targetId)
     }
-    hiddenPlayerRef.current = targetId
 
     const pos = positions[targetId]
-    if (pos) {
-      group.position.set(pos[0], pos[1], pos[2])
-      group.rotation.set(0, Math.atan2(-pos[0], -pos[2]), 0)
+    if (!pos) {
+      return
     }
-    group.visible = true
 
-    const names = Object.keys(actions)
-    if (names.length) {
-      const action = actions[names[0]]
-      if (action) {
-        action.reset()
-        action.setLoop(THREE.LoopOnce, 1)
-        action.clampWhenFinished = true
-        action.enabled = true
-        action.timeScale = 1
-        action.play()
+    setEvents((prev) => {
+      if (prev.some((item) => item.eventId === eventId)) {
+        return prev
       }
-    }
+      return [
+        ...prev,
+        {
+          eventId,
+          position: [pos[0], pos[1], pos[2]],
+          rotationY: Math.atan2(-pos[0], -pos[2]),
+        },
+      ]
+    })
   })
 
   return (
-    <group ref={groupRef} visible={false} scale={model.scale}>
-      <primitive object={model.object} />
-    </group>
+    <>
+      {events.map((event) => (
+        <DeathCorpse key={event.eventId} source={source} event={event} />
+      ))}
+    </>
   )
 }

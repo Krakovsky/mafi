@@ -32,13 +32,6 @@ function PlayerActorBase({ playerId, position, showWebcams, webcamVisible = true
             <PlayerModel tint={tint} alive={player.alive} />
           </Suspense>
         </group>
-
-        {!player.alive ? (
-          <mesh position={[0, 2.8, 0]}>
-            <boxGeometry args={[0.1, 1.2, 0.1]} />
-            <meshStandardMaterial color="#bd3d3d" />
-          </mesh>
-        ) : null}
       </group>
 
       {showWebcams ? (

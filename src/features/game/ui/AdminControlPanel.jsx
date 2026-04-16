@@ -126,7 +126,7 @@ function WebcamRow({ player, onUpdate }) {
   )
 }
 
-export function AdminControlPanel({ onAssassinationChange }) {
+export function AdminControlPanel({ assassinationRef }) {
   const phase = useGameStore((state) => state.phase)
   const round = useGameStore((state) => state.round)
   const players = useGameStore((state) => state.players)
@@ -206,7 +206,7 @@ export function AdminControlPanel({ onAssassinationChange }) {
       setNightTargetId('')
       setDoctorSaved(false)
       setSheriffCheckId('')
-      onAssassinationChange(null)
+      assassinationRef.current = null
       return
     }
 
@@ -215,13 +215,13 @@ export function AdminControlPanel({ onAssassinationChange }) {
 
     const animate = (currentTime) => {
       const progress = Math.min((currentTime - startedAt) / duration, 1)
-      onAssassinationChange({ targetId: result.targetId, progress })
+      assassinationRef.current = { targetId: result.targetId, progress }
 
       if (progress < 1) {
         frameRef.current = requestAnimationFrame(animate)
       } else {
         timeoutRef.current = window.setTimeout(() => {
-          onAssassinationChange(null)
+          assassinationRef.current = null
           setNightTargetId('')
           setDoctorSaved(false)
           setSheriffCheckId('')
@@ -230,7 +230,7 @@ export function AdminControlPanel({ onAssassinationChange }) {
     }
 
     frameRef.current = requestAnimationFrame(animate)
-  }, [doctorSaved, effectiveNightTargetId, effectiveSheriffCheckId, onAssassinationChange, phase, runNightManual])
+  }, [doctorSaved, effectiveNightTargetId, effectiveSheriffCheckId, assassinationRef, phase, runNightManual])
 
   const handleDayVote = useCallback(() => {
     if (phase !== 'day') {

@@ -88,5 +88,5 @@ export function TownBackdrop() {
     return { object: cloned, scale: localScale }
   }, [gltf.scene, textures])
 
-  return <Clone object={object} position={[0, -0.2, -38]} scale={scale * 4} />
+  return <Clone object={object} position={[0, -0.1, -38]} scale={scale * 4} />
 }

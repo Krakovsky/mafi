@@ -1,14 +1,12 @@
-import { useState } from 'react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { useGameStore } from '../features/game/model/gameStore'
 import { useRealtimeSync } from '../features/game/realtime/useRealtimeSync'
 import { AdminControlPanel } from '../features/game/ui/AdminControlPanel'
 import { MafiaScene } from '../features/scene/MafiaScene'
 import '../styles/layout.css'
 
 export default function AdminPage() {
-  const [assassination, setAssassination] = useState(null)
-  const players = useGameStore((state) => state.players)
+  const assassinationRef = useRef(null)
 
   useRealtimeSync(true)
 
@@ -16,13 +14,12 @@ export default function AdminPage() {
     <main className="app-shell admin-mode">
       <section className="scene-wrap">
         <MafiaScene
-          players={players}
-          assassination={assassination}
+          assassinationRef={assassinationRef}
           showWebcams
         />
       </section>
 
-      <AdminControlPanel onAssassinationChange={setAssassination} />
+      <AdminControlPanel assassinationRef={assassinationRef} />
 
       <Link className="route-switch" to="/">
         Клиентский экран

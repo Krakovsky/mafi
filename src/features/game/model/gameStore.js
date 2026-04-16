@@ -93,35 +93,52 @@ export const useGameStore = create((set, get) => ({
   },
 
   setPlayerAlive: (playerId, alive) => {
-    const { players, speechFocusPlayerId } = get()
+    const { players, speechFocusPlayerId, log } = get()
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, alive } : player))
     const winnerState = evaluateWinner(updatedPlayers)
     const focusedStillAlive = updatedPlayers.some((player) => player.id === speechFocusPlayerId && player.alive)
+    const player = players.find((p) => p.id === playerId)
+    const logLine = alive
+      ? `Игрок ${playerId + 1} возвращён в игру.`
+      : `Игрок ${playerId + 1}${player && player.name ? ` (${player.name})` : ''} выбыл из игры.`
     set({
       players: updatedPlayers,
       speechFocusPlayerId: focusedStillAlive ? speechFocusPlayerId : null,
       winner: winnerState,
       phase: winnerState ? 'ended' : get().phase,
+      log: [...log, logLine],
     })
   },
 
   setPlayerName: (playerId, name) => {
-    const { players } = get()
+    const { players, log } = get()
+    const player = players.find((p) => p.id === playerId)
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, name } : player))
-    set({ players: updatedPlayers })
+    set({
+      players: updatedPlayers,
+      log: [...log, `Игроку ${playerId + 1}${player && player.name ? ` (${player.name})` : ''} задано имя: ${name}`],
+    })
   },
 
   setPlayerNumber: (playerId, number) => {
-    const { players } = get()
+    const { players, log } = get()
     const safeNumber = Number.isFinite(number) ? Math.max(1, Math.floor(number)) : 1
+    const player = players.find((p) => p.id === playerId)
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, number: safeNumber } : player))
-    set({ players: updatedPlayers })
+    set({
+      players: updatedPlayers,
+      log: [...log, `Игроку ${playerId + 1}${player && player.name ? ` (${player.name})` : ''} изменён номер на ${safeNumber}`],
+    })
   },
 
   setPlayerWebcamUrl: (playerId, webcamUrl) => {
-    const { players } = get()
+    const { players, log } = get()
+    const player = players.find((p) => p.id === playerId)
     const updatedPlayers = players.map((player) => (player.id === playerId ? { ...player, webcamUrl } : player))
-    set({ players: updatedPlayers })
+    set({
+      players: updatedPlayers,
+      log: [...log, `Игроку ${playerId + 1}${player && player.name ? ` (${player.name})` : ''} установлен URL веб-камеры: ${webcamUrl}`],
+    })
   },
 
   runNightManual: ({ targetId, saved, sheriffCheckId }) => {
@@ -220,15 +237,43 @@ export const useGameStore = create((set, get) => ({
       return
     }
 
-    set({
-      phase: snapshot.phase,
-      round: snapshot.round,
-      players: snapshot.players,
-      speechFocusPlayerId: snapshot.speechFocusPlayerId ?? null,
-      speechFocusEventId: snapshot.speechFocusEventId ?? 0,
-      winner: snapshot.winner,
-      log: Array.isArray(snapshot.log) ? snapshot.log : [],
-    })
+    const current = get()
+    const patch = {}
+    let hasChanges = false
+
+    if (snapshot.phase !== current.phase) { patch.phase = snapshot.phase; hasChanges = true }
+    if (snapshot.round !== current.round) { patch.round = snapshot.round; hasChanges = true }
+    if ((snapshot.speechFocusPlayerId ?? null) !== current.speechFocusPlayerId) { patch.speechFocusPlayerId = snapshot.speechFocusPlayerId ?? null; hasChanges = true }
+    if ((snapshot.speechFocusEventId ?? 0) !== current.speechFocusEventId) { patch.speechFocusEventId = snapshot.speechFocusEventId ?? 0; hasChanges = true }
+    if (snapshot.winner !== current.winner) { patch.winner = snapshot.winner; hasChanges = true }
+
+    const incomingLog = Array.isArray(snapshot.log) ? snapshot.log : []
+    if (incomingLog.length !== current.log.length || incomingLog[incomingLog.length - 1] !== current.log[current.log.length - 1]) {
+      patch.log = incomingLog
+      hasChanges = true
+    }
+
+    const playersChanged = snapshot.players.length !== current.players.length ||
+      snapshot.players.some((p, i) => {
+        const c = current.players[i]
+        return !c || p.id !== c.id || p.alive !== c.alive || p.role !== c.role ||
+          p.name !== c.name || p.number !== c.number || p.webcamUrl !== c.webcamUrl
+      })
+    if (playersChanged) {
+      patch.players = snapshot.players.map((p, i) => {
+        const c = current.players[i]
+        if (c && p.id === c.id && p.alive === c.alive && p.role === c.role &&
+            p.name === c.name && p.number === c.number && p.webcamUrl === c.webcamUrl) {
+          return c
+        }
+        return p
+      })
+      hasChanges = true
+    }
+
+    if (hasChanges) {
+      set(patch)
+    }
   },
 
   exportSnapshot: () => {

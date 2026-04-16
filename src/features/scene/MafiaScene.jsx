@@ -1,6 +1,8 @@
 import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette, ChromaticAberration, ToneMapping, SSAO } from '@react-three/postprocessing'
+import { BlendFunction, ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
 import {
   dinoModelUrl,
@@ -29,6 +31,69 @@ function easeInOutCubic(t) {
   return 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
+function PostProcessingEffects() {
+  const bloomRef = useRef()
+  const vignetteRef = useRef()
+  const chromaticRef = useRef()
+  const intensityRef = useRef(1.2)
+  const chromaticOffsetRef = useRef(new THREE.Vector2(0.002, 0.002))
+
+  useFrame((state, delta) => {
+    const phase = useGameStore.getState().phase
+
+    if (bloomRef.current) {
+      const targetIntensity = phase === 'night' ? 1.5 : 0.15
+      intensityRef.current = THREE.MathUtils.damp(intensityRef.current, targetIntensity, 4, delta)
+      bloomRef.current.intensity = intensityRef.current
+    }
+
+    if (vignetteRef.current) {
+      const targetDarkness = phase === 'night' ? 0.7 : 0.35
+      vignetteRef.current.darkness = THREE.MathUtils.damp(vignetteRef.current.darkness, targetDarkness, 4, delta)
+    }
+
+    if (chromaticRef.current) {
+      const targetOffset = phase === 'night' ? 0.003 : 0.0008
+      chromaticOffsetRef.current.set(
+        THREE.MathUtils.damp(chromaticOffsetRef.current.x, targetOffset, 3, delta),
+        THREE.MathUtils.damp(chromaticOffsetRef.current.y, targetOffset, 3, delta)
+      )
+      chromaticRef.current.offset = chromaticOffsetRef.current
+    }
+  })
+
+  return (
+    <EffectComposer multisampling={4} enableNormalPass>
+      <SSAO
+        blendFunction={BlendFunction.MULTIPLY}
+        samples={16}
+        radius={0.4}
+        intensity={15}
+        luminanceInfluence={0.5}
+        color="#000000"
+      />
+      <Bloom
+        ref={bloomRef}
+        intensity={0.15}
+        luminanceThreshold={0.9}
+        luminanceSmoothing={0.1}
+        mipmapBlur
+        radius={0.5}
+        levels={6}
+      />
+      <ChromaticAberration
+        ref={chromaticRef}
+        offset={[0.002, 0.002]}
+        radialModulation
+        modulationOffset={0.3}
+        blendFunction={BlendFunction.NORMAL}
+      />
+      <Vignette ref={vignetteRef} offset={0.4} darkness={0.5} eskil={false} />
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  )
+}
+
 function ProceduralGround() {
   const textures = useTexture({
     map: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_diff_1k.jpg',
@@ -36,14 +101,14 @@ function ProceduralGround() {
     roughnessMap: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_arm_1k.jpg',
   })
 
-  textures.map.wrapS = textures.map.wrapT = THREE.RepeatWrapping
-  textures.normalMap.wrapS = textures.normalMap.wrapT = THREE.RepeatWrapping
-  textures.roughnessMap.wrapS = textures.roughnessMap.wrapT = THREE.RepeatWrapping
-
-  const repeat = 8
-  textures.map.repeat.set(repeat, repeat)
-  textures.normalMap.repeat.set(repeat, repeat)
-  textures.roughnessMap.repeat.set(repeat, repeat)
+  useEffect(() => {
+    textures.map.wrapS = textures.map.wrapT = THREE.RepeatWrapping
+    textures.normalMap.wrapS = textures.normalMap.wrapT = THREE.RepeatWrapping
+    textures.roughnessMap.wrapS = textures.roughnessMap.wrapT = THREE.RepeatWrapping
+    textures.map.repeat.set(8, 8)
+    textures.normalMap.repeat.set(8, 8)
+    textures.roughnessMap.repeat.set(8, 8)
+  }, [textures])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
@@ -123,6 +188,7 @@ function SceneAtmosphere({ dayBlendRef }) {
   const directionalLightRef = useRef(null)
   const starsRef = useRef(null)
   const cloudRef = useRef(null)
+  const groundMistRef = useRef(null)
 
   useFrame((state, delta) => {
     phaseRef.current = useGameStore.getState().phase
@@ -158,43 +224,55 @@ function SceneAtmosphere({ dayBlendRef }) {
     if (cloudRef.current) {
       cloudRef.current.visible = dayBlend > 0.08
     }
+
+    if (groundMistRef.current) {
+      const mistVisible = phaseRef.current === 'night'
+      groundMistRef.current.visible = mistVisible
+    }
   })
 
   return (
     <>
       <color attach="background" args={['#08111b']} />
-      <fog attach="fog" args={['#08111b', 20, 125]} />
+      <fog attach="fog" args={['#08111b', 25, 100]} />
 
-      <Stars ref={starsRef} radius={80} depth={35} count={1600} factor={3} saturation={0.15} fade />
+      <Stars ref={starsRef} radius={100} depth={50} count={3000} factor={4} saturation={0.3} fade speed={0.5} />
 
       <ambientLight ref={ambientLightRef} intensity={0.4} color="#b0bbd8" />
-      <hemisphereLight ref={hemisphereLightRef} intensity={0.5} color="#c4d4ff" groundColor="#3a4a5a" />
-      <directionalLight position={[8, 5, 10]} intensity={0.3} color="#8ec8ff" />
+      <hemisphereLight ref={hemisphereLightRef} intensity={0.6} color="#c4d4ff" groundColor="#2a3a4a" />
 
       <directionalLight
         ref={directionalLightRef}
         castShadow
-        intensity={1.2}
+        intensity={1.5}
         color="#ffe4c4"
         position={[-8, 12, -10]}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
-        shadow-camera-far={60}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-far={100}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
         shadow-bias={-0.0001}
         shadow-normalBias={0.02}
-        shadow-radius={2}
+        shadow-radius={4}
       />
 
-      <Environment preset="sunset" background={false} />
+      <pointLight position={[15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
+      <pointLight position={[-15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
+
+      <Environment preset="night" background={false} />
 
       <SunMoonCelestials dayBlendRef={dayBlendRef} />
 
-      <Cloud ref={cloudRef} opacity={0.4} speed={0.2} width={40} depth={1.5} segments={20} position={[0, 15, -25]} />
+      <Cloud ref={cloudRef} opacity={0.5} speed={0.15} width={60} depth={2} segments={25} position={[0, 18, -30]} />
+
+      <mesh ref={groundMistRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} visible={false}>
+        <planeGeometry args={[80, 80]} />
+        <meshBasicMaterial color="#1a2a4a" transparent opacity={0.3} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
     </>
   )
 }
@@ -450,10 +528,11 @@ function MafiaSceneInner({
         style={{ width: '100%', height: '100%' }}
         shadows="basic"
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
         camera={{ position: [0, 11, 34], fov: 42 }}
       >
         <SceneAtmosphere dayBlendRef={dayBlendRef} />
+        <PostProcessingEffects />
         <DeferredDeathTrigger
           dayBlendRef={dayBlendRef}
           queuedDeathTargetRef={queuedDeathTargetRef}

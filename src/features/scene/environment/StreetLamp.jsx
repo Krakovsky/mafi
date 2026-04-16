@@ -1,18 +1,37 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Clone, useGLTF, useTexture } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { lampModelUrl } from '../../game/model/constants'
 import { useGameStore } from '../../game/model/gameStore'
 
+function LampLightCone({ position }) {
+  const coneRef = useRef()
+
+  useFrame((state, delta) => {
+    if (coneRef.current) {
+      const phase = useGameStore.getState().phase
+      const targetOpacity = phase === 'night' ? 0.08 : 0
+      coneRef.current.material.opacity = THREE.MathUtils.damp(coneRef.current.material.opacity, targetOpacity, 4, delta)
+    }
+  })
+
+  return (
+    <mesh ref={coneRef} position={[position[0], position[1] - 2, position[2]]}>
+      <coneGeometry args={[3, 4, 16, 1, true]} />
+      <meshBasicMaterial color="#ffcc88" transparent opacity={0} side={THREE.BackSide} depthWrite={false} blending={THREE.AdditiveBlending} />
+    </mesh>
+  )
+}
+
 function LampPost({ position, rotation }) {
   const lightRef = useRef(null)
 
-  useFrame(() => {
+  useFrame((state, delta) => {
     if (lightRef.current) {
       const phase = useGameStore.getState().phase
-      const target = phase === 'night' ? 100 : 0
-      lightRef.current.intensity += (target - lightRef.current.intensity) * 0.05
+      const target = phase === 'night' ? 120 : 0
+      lightRef.current.intensity = THREE.MathUtils.damp(lightRef.current.intensity, target, 4, delta)
     }
   })
 
@@ -23,15 +42,14 @@ function LampPost({ position, rotation }) {
     normal: '/models/lamp/textures/DefaultMaterial_normal.png',
   })
 
-  const { object, scale } = useMemo(() => {
+  useEffect(() => {
     textures.color.flipY = false
     textures.mr.flipY = false
     textures.normal.flipY = false
     textures.color.colorSpace = THREE.SRGBColorSpace
-    textures.color.needsUpdate = true
-    textures.mr.needsUpdate = true
-    textures.normal.needsUpdate = true
+  }, [textures])
 
+  const { object, scale } = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     const box = new THREE.Box3().setFromObject(cloned)
     const size = new THREE.Vector3()
@@ -64,7 +82,8 @@ function LampPost({ position, rotation }) {
   return (
     <group position={position} rotation={rotation}>
       <Clone object={object} scale={scale} />
-      <pointLight ref={lightRef} position={[0, 5.2, 0]} intensity={0} distance={20} decay={2} color="#ffaa44" />
+      <pointLight ref={lightRef} position={[0, 5.2, 0]} intensity={0} distance={25} decay={2} color="#ffaa44" castShadow />
+      <LampLightCone position={[0, 5.2, 0]} />
     </group>
   )
 }

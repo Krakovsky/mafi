@@ -20,6 +20,8 @@ import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
 import { PostProcessingEffects } from './PostProcessingEffects'
+import { WebcamOverlay } from './components/WebcamOverlay'
+import '../../styles/webcam-overlay.css'
 
 const UP_AXIS = new THREE.Vector3(0, 1, 0)
 
@@ -423,6 +425,193 @@ function SpeechCameraDirector({ playerSlots, controlsRef }) {
   return null
 }
 
+function AutoWebcamFraming({ controlsRef, players, positions, showWebcams }) {
+  const { camera, size } = useThree()
+  const tmpCameraRef = useRef(new THREE.PerspectiveCamera())
+  const worldPointRef = useRef(new THREE.Vector3())
+  const projectedRef = useRef(new THREE.Vector3())
+  const dirRef = useRef(new THREE.Vector3())
+
+  useFrame((_, delta) => {
+    if (!showWebcams) {
+      return
+    }
+
+    const controls = controlsRef.current
+    if (!controls || !controls.enabled) {
+      return
+    }
+
+    const aliveIndices = []
+    for (let index = 0; index < positions.length; index += 1) {
+      if (players[index]?.alive) {
+        aliveIndices.push(index)
+      }
+    }
+
+    if (aliveIndices.length === 0) {
+      return
+    }
+
+    const direction = dirRef.current.copy(camera.position).sub(controls.target)
+    const currentDistance = direction.length()
+    if (currentDistance < 0.001) {
+      return
+    }
+    direction.normalize()
+
+    const minDistance = 14
+    const maxDistance = 44
+    const sideMargin = 18
+    const topMargin = 10
+    const bottomMargin = 14
+
+    const measureAtDistance = (distance) => {
+      const tmpCamera = tmpCameraRef.current
+      tmpCamera.fov = camera.fov
+      tmpCamera.aspect = camera.aspect
+      tmpCamera.near = camera.near
+      tmpCamera.far = camera.far
+      tmpCamera.position.copy(controls.target).addScaledVector(direction, distance)
+      tmpCamera.up.copy(camera.up)
+      tmpCamera.lookAt(controls.target)
+      tmpCamera.updateProjectionMatrix()
+      tmpCamera.updateMatrixWorld()
+
+      const anchors = []
+      const worldPoint = worldPointRef.current
+      const projected = projectedRef.current
+      for (const index of aliveIndices) {
+        const pos = positions[index]
+        worldPoint.set(pos[0], pos[1] + 3.26, pos[2] + 0.05)
+        projected.copy(worldPoint).project(tmpCamera)
+
+        if (projected.z < -1 || projected.z > 1) {
+          return { fits: false }
+        }
+
+        const anchorX = (projected.x * 0.5 + 0.5) * size.width
+        const anchorY = (-projected.y * 0.5 + 0.5) * size.height
+        const distanceToCamera = tmpCamera.position.distanceTo(worldPoint)
+        anchors.push({ anchorX, anchorY, distanceToCamera })
+      }
+
+      let minCameraDistance = Infinity
+      let maxCameraDistance = 0
+      for (const anchor of anchors) {
+        minCameraDistance = Math.min(minCameraDistance, anchor.distanceToCamera)
+        maxCameraDistance = Math.max(maxCameraDistance, anchor.distanceToCamera)
+      }
+      const cameraDistanceRange = Math.max(maxCameraDistance - minCameraDistance, 0.001)
+
+      let minAnchorSpacing = Infinity
+      for (let index = 0; index < anchors.length; index += 1) {
+        const current = anchors[index]
+        let nearestSpacing = Infinity
+        for (let compareIndex = 0; compareIndex < anchors.length; compareIndex += 1) {
+          if (compareIndex === index) {
+            continue
+          }
+          const other = anchors[compareIndex]
+          const dx = current.anchorX - other.anchorX
+          const dy = current.anchorY - other.anchorY
+          const spacing = Math.sqrt(dx * dx + dy * dy)
+          minAnchorSpacing = Math.min(minAnchorSpacing, spacing)
+          nearestSpacing = Math.min(nearestSpacing, spacing)
+        }
+        current.nearestSpacing = Number.isFinite(nearestSpacing) ? nearestSpacing : 360
+      }
+
+      let minX = Infinity
+      let maxX = -Infinity
+      let minY = Infinity
+      let maxY = -Infinity
+
+      for (const anchor of anchors) {
+        const viewportScale = THREE.MathUtils.clamp(size.width / 1600, 0.92, 1.02)
+        const depthT = THREE.MathUtils.clamp(
+          (anchor.distanceToCamera - minCameraDistance) / cameraDistanceRange,
+          0,
+          1,
+        )
+        const depthScale = THREE.MathUtils.lerp(1.04, 0.86, Math.pow(depthT, 0.9))
+        const verticalScale = THREE.MathUtils.lerp(0.94, 1.04, THREE.MathUtils.clamp(anchor.anchorY / size.height, 0, 1))
+        const localSpacingScale = THREE.MathUtils.clamp(anchor.nearestSpacing / 320, 0.72, 1.07)
+        const globalDensityScale = Number.isFinite(minAnchorSpacing)
+          ? THREE.MathUtils.clamp(minAnchorSpacing / 320, 0.84, 1)
+          : 1
+        const cardScale = THREE.MathUtils.clamp(
+          viewportScale * depthScale * verticalScale * localSpacingScale * globalDensityScale,
+          0.72,
+          1.04,
+        )
+        const cardWidth = 340 * cardScale
+        const cardHeight = (192 + 34) * cardScale
+        const left = anchor.anchorX - cardWidth * 0.5
+        const right = left + cardWidth
+        const top = anchor.anchorY - cardHeight - 14
+        const bottom = top + cardHeight
+
+        minX = Math.min(minX, left)
+        maxX = Math.max(maxX, right)
+        minY = Math.min(minY, top)
+        maxY = Math.max(maxY, bottom)
+
+        if (bottom > anchor.anchorY - 8) {
+          return { fits: false }
+        }
+      }
+
+      const freeLeft = minX
+      const freeRight = size.width - maxX
+      const freeTop = minY
+      const freeBottom = size.height - maxY
+      const fits =
+        freeLeft >= sideMargin &&
+        freeRight >= sideMargin &&
+        freeTop >= topMargin &&
+        freeBottom >= bottomMargin
+
+      return {
+        fits,
+        freeLeft,
+        freeRight,
+        freeTop,
+        freeBottom,
+      }
+    }
+
+    let desiredDistance = currentDistance
+    if (measureAtDistance(minDistance).fits) {
+      desiredDistance = minDistance
+    } else if (!measureAtDistance(maxDistance).fits) {
+      desiredDistance = maxDistance
+    } else {
+      let low = minDistance
+      let high = maxDistance
+      for (let iteration = 0; iteration < 12; iteration += 1) {
+        const mid = (low + high) * 0.5
+        if (measureAtDistance(mid).fits) {
+          high = mid
+        } else {
+          low = mid
+        }
+      }
+      desiredDistance = high
+    }
+
+    const nextDistance = THREE.MathUtils.damp(currentDistance, desiredDistance, 5.6, delta)
+    if (Math.abs(nextDistance - currentDistance) < 0.002) {
+      return
+    }
+
+    camera.position.copy(controls.target).addScaledVector(direction, nextDistance)
+    controls.update()
+  })
+
+  return null
+}
+
 
 
 function MafiaSceneInner({
@@ -497,7 +686,7 @@ function MafiaSceneInner({
         shadows="basic"
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
-        camera={{ position: [0, 11, 34], fov: 42 }}
+        camera={{ position: [0, 10.4, 33], fov: 40 }}
       >
         <SceneAtmosphere dayBlendRef={dayBlendRef} />
         <PostProcessingEffects />
@@ -509,6 +698,12 @@ function MafiaSceneInner({
         <SpeechCameraDirector
           playerSlots={playerSlots}
           controlsRef={controlsRef}
+        />
+        <AutoWebcamFraming
+          controlsRef={controlsRef}
+          players={players}
+          positions={positions}
+          showWebcams={showWebcams}
         />
         <ProceduralGround />
 
@@ -525,10 +720,14 @@ function MafiaSceneInner({
             key={index}
             playerId={index}
             position={pos}
-            showWebcams={showWebcams}
-            webcamVisible={Boolean(players[index]?.alive)}
           />
         ))}
+
+        <WebcamOverlay
+          players={players}
+          positions={positions}
+          showWebcams={showWebcams}
+        />
 
         <Assassin assassinationRef={assassinationRef} positions={positions} />
         <DeathAnimation
@@ -538,11 +737,16 @@ function MafiaSceneInner({
 
         <OrbitControls
           ref={controlsRef}
-          target={[0, 1.8, 0]}
-          minDistance={18}
-          maxDistance={75}
-          minPolarAngle={0.35}
-          maxPolarAngle={1.34}
+          target={[0, 1.5, 0]}
+          enablePan={false}
+          enableDamping
+          dampingFactor={0.08}
+          rotateSpeed={0.72}
+          zoomSpeed={0.72}
+          minDistance={20}
+          maxDistance={44}
+          minPolarAngle={0.58}
+          maxPolarAngle={1.15}
         />
       </Canvas>
 

@@ -40,7 +40,7 @@ function PlayerActorBase({ playerId, position, showWebcams, webcamVisible = true
           center
           distanceFactor={5}
           style={{
-            pointerEvents: webcamVisible ? 'auto' : 'none',
+            pointerEvents: 'none',
             width: VIEWPORT_W,
             borderRadius: 10,
             overflow: 'hidden',

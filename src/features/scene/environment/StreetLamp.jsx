@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Clone, useGLTF, useTexture } from '@react-three/drei'
+import { useRef } from 'react'
+import { useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { lampModelUrl } from '../../game/model/constants'
@@ -26,63 +26,20 @@ function LampLightCone({ position }) {
 
 function LampPost({ position, rotation }) {
   const lightRef = useRef(null)
+  const { scene } = useGLTF(lampModelUrl)
 
   useFrame((state, delta) => {
     if (lightRef.current) {
       const phase = useGameStore.getState().phase
-      const target = phase === 'night' ? 120 : 0
+      const target = phase === 'night' ? 100 : 0
       lightRef.current.intensity = THREE.MathUtils.damp(lightRef.current.intensity, target, 4, delta)
     }
   })
 
-  const gltf = useGLTF(lampModelUrl)
-  const textures = useTexture({
-    color: '/models/lamp/textures/DefaultMaterial_baseColor.jpeg',
-    mr: '/models/lamp/textures/DefaultMaterial_metallicRoughness.png',
-    normal: '/models/lamp/textures/DefaultMaterial_normal.png',
-  })
-
-  useEffect(() => {
-    textures.color.flipY = false
-    textures.mr.flipY = false
-    textures.normal.flipY = false
-    textures.color.colorSpace = THREE.SRGBColorSpace
-  }, [textures])
-
-  const { object, scale } = useMemo(() => {
-    const cloned = gltf.scene.clone(true)
-    const box = new THREE.Box3().setFromObject(cloned)
-    const size = new THREE.Vector3()
-    const center = new THREE.Vector3()
-    box.getSize(size)
-    box.getCenter(center)
-    const localScale = 6 / (Math.max(size.x, size.y, size.z) || 1)
-
-    cloned.position.x -= center.x
-    cloned.position.y -= box.min.y - 2
-    cloned.position.z -= center.z
-
-    cloned.traverse((node) => {
-      if (!node.isMesh || !node.material) {
-        return
-      }
-      const material = node.material
-      material.map = textures.color
-      material.metalnessMap = textures.mr
-      material.roughnessMap = textures.mr
-      material.normalMap = textures.normal
-      material.needsUpdate = true
-      node.castShadow = true
-      node.receiveShadow = true
-    })
-
-    return { object: cloned, scale: localScale }
-  }, [gltf.scene, textures])
-
   return (
     <group position={position} rotation={rotation}>
-      <Clone object={object} scale={scale} />
-      <pointLight ref={lightRef} position={[0, 5.2, 0]} intensity={0} distance={25} decay={2} color="#ffaa44" castShadow />
+      <primitive object={scene.clone()} scale={0.015} position={[0, 0.2, 0]} />
+      <pointLight ref={lightRef} position={[0, 5.2, 0]} intensity={0} distance={20} decay={2} color="#ffaa44" />
       <LampLightCone position={[0, 5.2, 0]} />
     </group>
   )

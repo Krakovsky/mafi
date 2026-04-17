@@ -1,11 +1,9 @@
 import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
-import { EffectComposer, Bloom, Vignette, ChromaticAberration, ToneMapping, SSAO } from '@react-three/postprocessing'
-import { BlendFunction, ToneMappingMode } from 'postprocessing'
+import { Cloud, Environment, Html, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import {
-  dinoModelUrl,
+  // dinoModelUrl,
   lampModelUrl,
   PLAYER_COUNT,
   PLAYER_RING_RADIUS,
@@ -21,6 +19,7 @@ import { ParkZone } from './environment/ParkZone'
 import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
+import { PostProcessingEffects } from './PostProcessingEffects'
 
 const UP_AXIS = new THREE.Vector3(0, 1, 0)
 
@@ -31,66 +30,35 @@ function easeInOutCubic(t) {
   return 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
-function PostProcessingEffects() {
-  const bloomRef = useRef()
-  const vignetteRef = useRef()
-  const chromaticRef = useRef()
-  const intensityRef = useRef(1.2)
-  const chromaticOffsetRef = useRef(new THREE.Vector2(0.002, 0.002))
-
-  useFrame((state, delta) => {
-    const phase = useGameStore.getState().phase
-
-    if (bloomRef.current) {
-      const targetIntensity = phase === 'night' ? 1.5 : 0.15
-      intensityRef.current = THREE.MathUtils.damp(intensityRef.current, targetIntensity, 4, delta)
-      bloomRef.current.intensity = intensityRef.current
-    }
-
-    if (vignetteRef.current) {
-      const targetDarkness = phase === 'night' ? 0.7 : 0.35
-      vignetteRef.current.darkness = THREE.MathUtils.damp(vignetteRef.current.darkness, targetDarkness, 4, delta)
-    }
-
-    if (chromaticRef.current) {
-      const targetOffset = phase === 'night' ? 0.003 : 0.0008
-      chromaticOffsetRef.current.set(
-        THREE.MathUtils.damp(chromaticOffsetRef.current.x, targetOffset, 3, delta),
-        THREE.MathUtils.damp(chromaticOffsetRef.current.y, targetOffset, 3, delta)
-      )
-      chromaticRef.current.offset = chromaticOffsetRef.current
-    }
-  })
-
+function Loader() {
   return (
-    <EffectComposer multisampling={4} enableNormalPass>
-      <SSAO
-        blendFunction={BlendFunction.MULTIPLY}
-        samples={16}
-        radius={0.4}
-        intensity={15}
-        luminanceInfluence={0.5}
-        color="#000000"
-      />
-      <Bloom
-        ref={bloomRef}
-        intensity={0.15}
-        luminanceThreshold={0.9}
-        luminanceSmoothing={0.1}
-        mipmapBlur
-        radius={0.5}
-        levels={6}
-      />
-      <ChromaticAberration
-        ref={chromaticRef}
-        offset={[0.002, 0.002]}
-        radialModulation
-        modulationOffset={0.3}
-        blendFunction={BlendFunction.NORMAL}
-      />
-      <Vignette ref={vignetteRef} offset={0.4} darkness={0.5} eskil={false} />
-      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-    </EffectComposer>
+    <Html center>
+      <div style={{
+        color: '#fff',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        textAlign: 'center',
+        background: 'rgba(0,0,0,0.6)',
+        padding: '20px 30px',
+        borderRadius: '8px',
+        border: '1px solid rgba(255,255,255,0.2)',
+      }}>
+        <div style={{ marginBottom: 8, opacity: 0.8 }}>Загрузка...</div>
+        <div style={{
+          width: '150px',
+          height: '4px',
+          background: 'rgba(255,255,255,0.2)',
+          borderRadius: '2px',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: '0%',
+            height: '100%',
+            background: '#4ade80',
+          }} />
+        </div>
+      </div>
+    </Html>
   )
 }
 
@@ -101,14 +69,14 @@ function ProceduralGround() {
     roughnessMap: '/textures/asphalt_pit_lane_1k/textures/asphalt_pit_lane_arm_1k.jpg',
   })
 
-  useEffect(() => {
-    textures.map.wrapS = textures.map.wrapT = THREE.RepeatWrapping
-    textures.normalMap.wrapS = textures.normalMap.wrapT = THREE.RepeatWrapping
-    textures.roughnessMap.wrapS = textures.roughnessMap.wrapT = THREE.RepeatWrapping
-    textures.map.repeat.set(8, 8)
-    textures.normalMap.repeat.set(8, 8)
-    textures.roughnessMap.repeat.set(8, 8)
-  }, [textures])
+  textures.map.wrapS = textures.map.wrapT = THREE.RepeatWrapping
+  textures.normalMap.wrapS = textures.normalMap.wrapT = THREE.RepeatWrapping
+  textures.roughnessMap.wrapS = textures.roughnessMap.wrapT = THREE.RepeatWrapping
+
+  const repeat = 8
+  textures.map.repeat.set(repeat, repeat)
+  textures.normalMap.repeat.set(repeat, repeat)
+  textures.roughnessMap.repeat.set(repeat, repeat)
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
@@ -234,7 +202,7 @@ function SceneAtmosphere({ dayBlendRef }) {
   return (
     <>
       <color attach="background" args={['#08111b']} />
-      <fog attach="fog" args={['#08111b', 25, 100]} />
+      <fog attach="fog" args={['#08111b', 30, 140]} />
 
       <Stars ref={starsRef} radius={100} depth={50} count={3000} factor={4} saturation={0.3} fade speed={0.5} />
 
@@ -263,11 +231,11 @@ function SceneAtmosphere({ dayBlendRef }) {
       <pointLight position={[15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
       <pointLight position={[-15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
 
-      <Environment preset="night" background={false} />
+      <Environment preset="sunset" background={false} />
 
       <SunMoonCelestials dayBlendRef={dayBlendRef} />
 
-      <Cloud ref={cloudRef} opacity={0.5} speed={0.15} width={60} depth={2} segments={25} position={[0, 18, -30]} />
+      <Cloud ref={cloudRef} opacity={0.4} speed={0.2} width={40} depth={1.5} segments={20} position={[0, 15, -25]} />
 
       <mesh ref={groundMistRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} visible={false}>
         <planeGeometry args={[80, 80]} />
@@ -544,12 +512,12 @@ function MafiaSceneInner({
         />
         <ProceduralGround />
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<Loader />}>
           <ParkZone />
           <TownBackdrop />
           <StreetLamp />
           <TreeRing />
-          <Dino position={[5, 0, -25]} />
+          {/* <Dino position={[5, 0, -25]} /> */}
         </Suspense>
 
         {positions.map((pos, index) => (
@@ -589,4 +557,4 @@ useFBX.preload('/models/maf/dying.fbx')
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)
-useGLTF.preload(dinoModelUrl)
+// useGLTF.preload(dinoModelUrl)

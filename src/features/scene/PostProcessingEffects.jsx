@@ -8,7 +8,7 @@ export function PostProcessingEffects() {
   const isNight = phase === 'night'
 
   return (
-    <EffectComposer multisampling={4}>
+    <EffectComposer multisampling={2}>
       <Bloom
         intensity={isNight ? 1.5 : 0.15}
         luminanceThreshold={0.9}

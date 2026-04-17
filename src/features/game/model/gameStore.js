@@ -35,7 +35,13 @@ export const useGameStore = create((set, get) => ({
   pendingNightResult: null,
   speechFocusPlayerId: null,
   speechFocusEventId: 0,
+  roleRevealActive: false,
+  roleRevealIndex: 0,
+  roleRevealCardRevealed: false,
+  roleRevealEventId: 0,
   winner: null,
+  gameStarted: false,
+  gameStartedEventId: 0,
   log: ['Игра началась. Город просыпается.'],
 
   resetGame: () => {
@@ -46,7 +52,13 @@ export const useGameStore = create((set, get) => ({
       pendingNightResult: null,
       speechFocusPlayerId: null,
       speechFocusEventId: 0,
+      roleRevealActive: false,
+      roleRevealIndex: 0,
+      roleRevealCardRevealed: false,
+      roleRevealEventId: 0,
       winner: null,
+      gameStarted: false,
+      gameStartedEventId: 0,
       log: ['Новая партия началась. Город засыпает.'],
     })
   },
@@ -63,6 +75,56 @@ export const useGameStore = create((set, get) => ({
     set({
       speechFocusPlayerId: target ? numericPlayerId : null,
       speechFocusEventId: speechFocusEventId + 1,
+    })
+  },
+
+  startGame: () => {
+    const { gameStartedEventId } = get()
+    set({ gameStarted: true, gameStartedEventId: gameStartedEventId + 1 })
+  },
+
+  startRoleRevealSequence: () => {
+    const { phase, roleRevealEventId } = get()
+    if (phase !== 'night') return
+    set({
+      roleRevealActive: true,
+      roleRevealIndex: 0,
+      roleRevealCardRevealed: false,
+      roleRevealEventId: roleRevealEventId + 1,
+    })
+  },
+
+  revealCurrentCard: () => {
+    set({ roleRevealCardRevealed: true })
+  },
+
+  setRevealPlayerRole: (role) => {
+    const { roleRevealIndex, players } = get()
+    const player = players[roleRevealIndex]
+    if (!player) return
+    if (player.role === role) return
+    const updatedPlayers = players.map((p) => (p.id === player.id ? { ...p, role } : p))
+    set({ players: updatedPlayers })
+  },
+
+  nextRoleReveal: () => {
+    const { roleRevealIndex, roleRevealEventId, players } = get()
+    const nextIndex = roleRevealIndex + 1
+    if (nextIndex >= players.length) return
+    set({
+      roleRevealIndex: nextIndex,
+      roleRevealCardRevealed: false,
+      roleRevealEventId: roleRevealEventId + 1,
+    })
+  },
+
+  endRoleRevealSequence: () => {
+    const { roleRevealEventId } = get()
+    set({
+      roleRevealActive: false,
+      roleRevealIndex: 0,
+      roleRevealCardRevealed: false,
+      roleRevealEventId: roleRevealEventId + 1,
     })
   },
 
@@ -279,7 +341,13 @@ export const useGameStore = create((set, get) => ({
     if ((snapshot.pendingNightResult ?? null) !== (current.pendingNightResult ?? null)) { patch.pendingNightResult = snapshot.pendingNightResult ?? null; hasChanges = true }
     if ((snapshot.speechFocusPlayerId ?? null) !== current.speechFocusPlayerId) { patch.speechFocusPlayerId = snapshot.speechFocusPlayerId ?? null; hasChanges = true }
     if ((snapshot.speechFocusEventId ?? 0) !== current.speechFocusEventId) { patch.speechFocusEventId = snapshot.speechFocusEventId ?? 0; hasChanges = true }
+    if ((snapshot.roleRevealActive ?? false) !== current.roleRevealActive) { patch.roleRevealActive = snapshot.roleRevealActive ?? false; hasChanges = true }
+    if ((snapshot.roleRevealIndex ?? 0) !== current.roleRevealIndex) { patch.roleRevealIndex = snapshot.roleRevealIndex ?? 0; hasChanges = true }
+    if ((snapshot.roleRevealCardRevealed ?? false) !== current.roleRevealCardRevealed) { patch.roleRevealCardRevealed = snapshot.roleRevealCardRevealed ?? false; hasChanges = true }
+    if ((snapshot.roleRevealEventId ?? 0) !== current.roleRevealEventId) { patch.roleRevealEventId = snapshot.roleRevealEventId ?? 0; hasChanges = true }
     if (snapshot.winner !== current.winner) { patch.winner = snapshot.winner; hasChanges = true }
+    if ((snapshot.gameStarted ?? false) !== current.gameStarted) { patch.gameStarted = snapshot.gameStarted ?? false; hasChanges = true }
+    if ((snapshot.gameStartedEventId ?? 0) !== current.gameStartedEventId) { patch.gameStartedEventId = snapshot.gameStartedEventId ?? 0; hasChanges = true }
 
     const incomingLog = Array.isArray(snapshot.log) ? snapshot.log : []
     if (incomingLog.length !== current.log.length || incomingLog[incomingLog.length - 1] !== current.log[current.log.length - 1]) {
@@ -311,7 +379,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   exportSnapshot: () => {
-    const { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, winner, log } = get()
-    return { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, winner, log }
+    const { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log } = get()
+    return { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log }
   },
 }))

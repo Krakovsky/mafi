@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useFBX, useAnimations, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -7,7 +7,6 @@ const ANIM_FBX_URL = '/models/maf/anim.fbx'
 
 export function PlayerModel({ tint, alive }) {
   const fbx = useFBX(ANIM_FBX_URL)
-  const groupRef = useRef()
   const textures = useTexture({
     mat2: '/models/maf/textures/mat_2_baseColor.png',
     mat3: '/models/maf/textures/mat_3_baseColor.png',
@@ -16,8 +15,18 @@ export function PlayerModel({ tint, alive }) {
     mat6: '/models/maf/textures/mat_6_baseColor.png',
   })
 
+  const textureMap = useMemo(() => {
+    return {
+      mat2: textures.mat2,
+      mat3: textures.mat3,
+      mat4: textures.mat4,
+      mat5: textures.mat5,
+      mat6: textures.mat6,
+    }
+  }, [textures.mat2, textures.mat3, textures.mat4, textures.mat5, textures.mat6])
+
   const { cloned, normalizedScale } = useMemo(() => {
-    Object.values(textures).forEach((texture) => {
+    Object.values(textureMap).forEach((texture) => {
       if (!texture) {
         return
       }
@@ -26,13 +35,13 @@ export function PlayerModel({ tint, alive }) {
       texture.needsUpdate = true
     })
 
-    const texturePool = [textures.mat2, textures.mat3, textures.mat4, textures.mat5, textures.mat6].filter(Boolean)
+    const texturePool = [textureMap.mat2, textureMap.mat3, textureMap.mat4, textureMap.mat5, textureMap.mat6].filter(Boolean)
 
     const pickTexture = (materialName, materialIndex) => {
       const normalizedName = String(materialName || '').toLowerCase()
       const match = normalizedName.match(/mat[_\s]?([2-6])/)
       if (match) {
-        const exact = textures[`mat${match[1]}`]
+        const exact = textureMap[`mat${match[1]}`]
         if (exact) {
           return exact
         }
@@ -109,25 +118,35 @@ export function PlayerModel({ tint, alive }) {
     })
 
     return { cloned: c, normalizedScale: scale }
-  }, [fbx, textures])
+  }, [fbx, textureMap])
 
-  const { actions } = useAnimations(fbx.animations, groupRef)
+  const { actions, mixer } = useAnimations(fbx.animations, cloned)
 
   useEffect(() => {
     const names = Object.keys(actions)
-    if (names.length > 0) {
-      const action = actions[names[0]]
-      if (action) {
-        action.reset().fadeIn(0.3).play()
-      }
+    if (names.length === 0) {
+      return undefined
     }
+
+    const action = actions[names[0]]
+    if (action) {
+      action.reset().fadeIn(0.3).play()
+    }
+
     return () => {
-      Object.values(actions).forEach((action) => action?.fadeOut(0.3))
+      Object.values(actions).forEach((currentAction) => {
+        if (!currentAction) {
+          return
+        }
+        currentAction.fadeOut(0.2)
+        currentAction.stop()
+      })
+      mixer?.stopAllAction()
     }
-  }, [actions])
+  }, [actions, cloned, mixer])
 
   return (
-    <group ref={groupRef} scale={alive ? normalizedScale : normalizedScale * 0.96}>
+    <group scale={alive ? normalizedScale : normalizedScale * 0.96}>
       <primitive object={cloned} />
       <mesh position={[0, 0.2, 0]}>
         <sphereGeometry args={[0.18, 16, 16]} />

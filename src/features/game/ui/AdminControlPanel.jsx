@@ -145,6 +145,10 @@ export function AdminControlPanel({ assassinationRef }) {
   const runNightManual = useGameStore((state) => state.runNightManual)
   const runDayVoteManual = useGameStore((state) => state.runDayVoteManual)
   const addLogLine = useGameStore((state) => state.addLogLine)
+  const startRoleRevealSequence = useGameStore((state) => state.startRoleRevealSequence)
+  const roleRevealActive = useGameStore((state) => state.roleRevealActive)
+  const gameStarted = useGameStore((state) => state.gameStarted)
+  const startGame = useGameStore((state) => state.startGame)
 
   const [nightTargetId, setNightTargetId] = useState('')
   const [doctorSaved, setDoctorSaved] = useState(false)
@@ -234,8 +238,6 @@ export function AdminControlPanel({ assassinationRef }) {
 
   return (
     <section className="admin-panel">
-      <h1 className="admin-title">Mafia: Host Console</h1>
-
       <div className="admin-meta">
         <span>Раунд {round}</span>
         <span>Фаза: {PHASE_TEXT[phase]}</span>
@@ -244,6 +246,12 @@ export function AdminControlPanel({ assassinationRef }) {
       </div>
 
       {winner ? <p className="winner-box">{winner}</p> : null}
+
+      <div className="button-row">
+        <button type="button" className="btn action" onClick={startGame} disabled={gameStarted}>
+          {gameStarted ? 'Игра запущена' : 'Старт'}
+        </button>
+      </div>
 
       <h2 className="section-title">Управление фазой</h2>
       <div className="button-row">
@@ -340,6 +348,18 @@ export function AdminControlPanel({ assassinationRef }) {
         </button>
         <button type="button" className="btn ghost" onClick={resetGame}>
           Новая партия
+        </button>
+      </div>
+
+      <h2 className="section-title">Выдача ролей (ночь)</h2>
+      <div className="button-row">
+        <button
+          type="button"
+          className="btn action"
+          disabled={phase !== 'night' || roleRevealActive}
+          onClick={startRoleRevealSequence}
+        >
+          Начать выдачу ролей
         </button>
       </div>
 

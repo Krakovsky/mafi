@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Clone, useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { townModelUrl } from '../../game/model/constants'
@@ -18,20 +18,18 @@ export function TownBackdrop() {
     redFlareEm: '/models/town/textures/RED_FLARE_emissive.png',
   })
 
-  const { object, scale } = useMemo(() => {
-    const preparedTextures = Object.values(textures)
-    preparedTextures.forEach((texture, index) => {
-      if (!texture) {
-        return
-      }
+  useEffect(() => {
+    Object.values(textures).forEach((texture, index) => {
+      if (!texture) return
       texture.flipY = false
       const isColor = index === 0 || index === 2 || index === 3 || index === 5 || index === 6 || index === 7 || index === 8 || index === 9
       if (isColor) {
         texture.colorSpace = THREE.SRGBColorSpace
       }
-      texture.needsUpdate = true
     })
+  }, [textures])
 
+  const { object, scale } = useMemo(() => {
     const cloned = gltf.scene.clone(true)
     const box = new THREE.Box3().setFromObject(cloned)
     const size = new THREE.Vector3()

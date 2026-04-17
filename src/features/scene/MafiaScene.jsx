@@ -1,9 +1,9 @@
 import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Cloud, Environment, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
+import { Cloud, Environment, Html, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import {
-  dinoModelUrl,
+  // dinoModelUrl,
   lampModelUrl,
   PLAYER_COUNT,
   PLAYER_RING_RADIUS,
@@ -19,6 +19,7 @@ import { ParkZone } from './environment/ParkZone'
 import { StreetLamp } from './environment/StreetLamp'
 import { TownBackdrop } from './environment/TownBackdrop'
 import { TreeRing } from './environment/TreeRing'
+import { PostProcessingEffects } from './PostProcessingEffects'
 
 const UP_AXIS = new THREE.Vector3(0, 1, 0)
 
@@ -27,6 +28,38 @@ function easeInOutCubic(t) {
     return 4 * t * t * t
   }
   return 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+function Loader() {
+  return (
+    <Html center>
+      <div style={{
+        color: '#fff',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        textAlign: 'center',
+        background: 'rgba(0,0,0,0.6)',
+        padding: '20px 30px',
+        borderRadius: '8px',
+        border: '1px solid rgba(255,255,255,0.2)',
+      }}>
+        <div style={{ marginBottom: 8, opacity: 0.8 }}>Загрузка...</div>
+        <div style={{
+          width: '150px',
+          height: '4px',
+          background: 'rgba(255,255,255,0.2)',
+          borderRadius: '2px',
+          overflow: 'hidden',
+        }}>
+          <div style={{
+            width: '0%',
+            height: '100%',
+            background: '#4ade80',
+          }} />
+        </div>
+      </div>
+    </Html>
+  )
 }
 
 function ProceduralGround() {
@@ -123,6 +156,7 @@ function SceneAtmosphere({ dayBlendRef }) {
   const directionalLightRef = useRef(null)
   const starsRef = useRef(null)
   const cloudRef = useRef(null)
+  const groundMistRef = useRef(null)
 
   useFrame((state, delta) => {
     phaseRef.current = useGameStore.getState().phase
@@ -158,43 +192,55 @@ function SceneAtmosphere({ dayBlendRef }) {
     if (cloudRef.current) {
       cloudRef.current.visible = dayBlend > 0.08
     }
+
+    if (groundMistRef.current) {
+      const mistVisible = phaseRef.current === 'night'
+      groundMistRef.current.visible = mistVisible
+    }
   })
 
   return (
     <>
       <color attach="background" args={['#08111b']} />
-      <fog attach="fog" args={['#08111b', 20, 125]} />
+      <fog attach="fog" args={['#08111b', 30, 140]} />
 
-      <Stars ref={starsRef} radius={80} depth={35} count={1600} factor={3} saturation={0.15} fade />
+      <Stars ref={starsRef} radius={100} depth={50} count={3000} factor={4} saturation={0.3} fade speed={0.5} />
 
       <ambientLight ref={ambientLightRef} intensity={0.4} color="#b0bbd8" />
-      <hemisphereLight ref={hemisphereLightRef} intensity={0.5} color="#c4d4ff" groundColor="#3a4a5a" />
-      <directionalLight position={[8, 5, 10]} intensity={0.3} color="#8ec8ff" />
+      <hemisphereLight ref={hemisphereLightRef} intensity={0.6} color="#c4d4ff" groundColor="#2a3a4a" />
 
       <directionalLight
         ref={directionalLightRef}
         castShadow
-        intensity={1.2}
+        intensity={1.5}
         color="#ffe4c4"
         position={[-8, 12, -10]}
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
-        shadow-camera-far={60}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
+        shadow-camera-far={100}
+        shadow-camera-left={-30}
+        shadow-camera-right={30}
+        shadow-camera-top={30}
+        shadow-camera-bottom={-30}
         shadow-bias={-0.0001}
         shadow-normalBias={0.02}
-        shadow-radius={2}
+        shadow-radius={4}
       />
+
+      <pointLight position={[15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
+      <pointLight position={[-15, 8, 15]} intensity={0.4} color="#ffcc88" distance={40} decay={2} />
 
       <Environment preset="sunset" background={false} />
 
       <SunMoonCelestials dayBlendRef={dayBlendRef} />
 
       <Cloud ref={cloudRef} opacity={0.4} speed={0.2} width={40} depth={1.5} segments={20} position={[0, 15, -25]} />
+
+      <mesh ref={groundMistRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]} visible={false}>
+        <planeGeometry args={[80, 80]} />
+        <meshBasicMaterial color="#1a2a4a" transparent opacity={0.3} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
     </>
   )
 }
@@ -450,10 +496,11 @@ function MafiaSceneInner({
         style={{ width: '100%', height: '100%' }}
         shadows="basic"
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
         camera={{ position: [0, 11, 34], fov: 42 }}
       >
         <SceneAtmosphere dayBlendRef={dayBlendRef} />
+        <PostProcessingEffects />
         <DeferredDeathTrigger
           dayBlendRef={dayBlendRef}
           queuedDeathTargetRef={queuedDeathTargetRef}
@@ -465,12 +512,12 @@ function MafiaSceneInner({
         />
         <ProceduralGround />
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<Loader />}>
           <ParkZone />
           <TownBackdrop />
           <StreetLamp />
           <TreeRing />
-          <Dino position={[5, 0, -25]} />
+          {/* <Dino position={[5, 0, -25]} /> */}
         </Suspense>
 
         {positions.map((pos, index) => (
@@ -510,4 +557,4 @@ useFBX.preload('/models/maf/dying.fbx')
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)
-useGLTF.preload(dinoModelUrl)
+// useGLTF.preload(dinoModelUrl)

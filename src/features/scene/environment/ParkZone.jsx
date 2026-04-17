@@ -22,7 +22,6 @@ function ParkGround() {
 
   useMemo(() => {
     prepareTiledTexture(textures.cobbleMap, 5, 5, true)
-    // prepareTiledTexture(textures.cobbleNormal, 5, 5)
     prepareTiledTexture(textures.cobbleRoughness, 5, 5)
   }, [textures])
 

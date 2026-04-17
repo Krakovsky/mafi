@@ -360,6 +360,32 @@ export function AdminControlPanel({ assassinationRef }) {
       </select>
 
       <div className="button-row">
+        {speechFocusPlayerId !== null && speechFocusPlayerId !== undefined && alivePlayers.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                const currentIndex = alivePlayers.findIndex((p) => p.id === speechFocusPlayerId)
+                const prevIndex = (currentIndex - 1 + alivePlayers.length) % alivePlayers.length
+                setSpeechFocusPlayerId(alivePlayers[prevIndex].id)
+              }}
+            >
+              ◀ Пред
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                const currentIndex = alivePlayers.findIndex((p) => p.id === speechFocusPlayerId)
+                const nextIndex = (currentIndex + 1) % alivePlayers.length
+                setSpeechFocusPlayerId(alivePlayers[nextIndex].id)
+              }}
+            >
+              След ▶
+            </button>
+          </>
+        )}
         <button
           type="button"
           className="btn action"

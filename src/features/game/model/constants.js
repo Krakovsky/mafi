@@ -29,6 +29,27 @@ export const ROLE_COLOR = {
   civilian: '#7c7f8a',
 }
 
+export const ROLE_LABEL = {
+  mafia: 'Мафия',
+  sheriff: 'Шериф',
+  doctor: 'Доктор',
+  civilian: 'Мирный',
+}
+
+export const ROLE_ICON = {
+  mafia: '🔫',
+  sheriff: '⭐',
+  doctor: '💊',
+  civilian: '🏠',
+}
+
+export const ROLE_IMAGE = {
+  mafia: '/maf.png',
+  sheriff: '/kom.png',
+  doctor: '/doc.png',
+  civilian: '/mir.png',
+}
+
 export const PHASE_TEXT = {
   night: 'Ночь',
   day: 'День',

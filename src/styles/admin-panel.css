@@ -17,12 +17,6 @@
   z-index: 99999999;
 }
 
-.admin-title {
-  margin: 0;
-  font-size: clamp(1.45rem, 1.2rem + 0.7vw, 1.95rem);
-  letter-spacing: 0.02em;
-}
-
 .admin-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(120px, 1fr));

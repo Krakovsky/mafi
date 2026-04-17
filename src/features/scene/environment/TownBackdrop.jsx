@@ -19,13 +19,17 @@ export function TownBackdrop() {
   })
 
   useEffect(() => {
-    Object.values(textures).forEach((texture, index) => {
+    const colorTextureKeys = new Set(['b1Color', 'b1Em', 'b2Color', 'b2Em', 'flareColor', 'flareEm', 'redFlareColor', 'redFlareEm'])
+
+    Object.entries(textures).forEach(([key, texture]) => {
       if (!texture) return
       texture.flipY = false
-      const isColor = index === 0 || index === 2 || index === 3 || index === 5 || index === 6 || index === 7 || index === 8 || index === 9
-      if (isColor) {
+      if (colorTextureKeys.has(key)) {
         texture.colorSpace = THREE.SRGBColorSpace
+      } else {
+        texture.colorSpace = THREE.NoColorSpace
       }
+      texture.needsUpdate = true
     })
   }, [textures])
 

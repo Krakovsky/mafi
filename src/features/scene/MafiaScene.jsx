@@ -329,6 +329,14 @@ function SpeechCameraDirector({ playerSlots, controlsRef }) {
     }
 
     const state = useGameStore.getState()
+    if (state.roleRevealActive) {
+      // Role reveal has its own camera director; avoid fighting over controls.
+      transitionRef.current = null
+      activeFocusIdRef.current = null
+      snapshotRef.current = null
+      return
+    }
+
     speechFocusPlayerIdRef.current = state.speechFocusPlayerId
     speechFocusEventIdRef.current = state.speechFocusEventId
     const speechFocusPlayerId = speechFocusPlayerIdRef.current
@@ -423,6 +431,158 @@ function SpeechCameraDirector({ playerSlots, controlsRef }) {
   return null
 }
 
+function RoleRevealCameraDirector({ playerSlots, controlsRef }) {
+  const { camera } = useThree()
+  const snapshotRef = useRef(null)
+  const transitionRef = useRef(null)
+  const activeFocusIdRef = useRef(null)
+  const prevRevealActiveRef = useRef(false)
+  const prevRevealIndexRef = useRef(0)
+  const originalDistanceLimitsRef = useRef(null)
+
+  const headRef = useRef(new THREE.Vector3())
+  const forwardRef = useRef(new THREE.Vector3())
+  const desiredPositionRef = useRef(new THREE.Vector3())
+  const desiredTargetRef = useRef(new THREE.Vector3())
+
+  const resolveRevealPose = (playerIndex, outPosition, outTarget) => {
+    const slot = playerSlots.get(playerIndex)
+    if (!slot) return null
+
+    const { position, facing } = slot
+    const base = headRef.current.set(position[0], 0, position[2])
+    const forward = forwardRef.current.set(0, 0, 1).applyAxisAngle(UP_AXIS, facing).normalize()
+
+    // Strict horizontal look: camera and target share the same body-height Y.
+    outPosition.copy(base).addScaledVector(forward, 4).addScaledVector(UP_AXIS, 2.7)
+    outTarget.copy(base).addScaledVector(UP_AXIS, 2.7)
+
+    return { fov: 36, focusId: playerIndex }
+  }
+
+  const beginTransition = (controls, destination, durationSec) => {
+    transitionRef.current = {
+      elapsed: 0,
+      duration: durationSec,
+      startPosition: camera.position.clone(),
+      startTarget: controls.target.clone(),
+      startFov: camera.fov,
+      endPosition: destination.position.clone(),
+      endTarget: destination.target.clone(),
+      endFov: destination.fov,
+    }
+  }
+
+  const applyRevealControlsMode = (controls) => {
+    controls.enabled = false
+    controls.minDistance = 0.001
+    controls.maxDistance = 1000
+    controls.minPolarAngle = 0
+    controls.maxPolarAngle = Math.PI
+  }
+
+  const restoreControlsMode = (controls) => {
+    controls.enabled = true
+    if (originalDistanceLimitsRef.current) {
+      controls.minDistance = originalDistanceLimitsRef.current.minDistance
+      controls.maxDistance = originalDistanceLimitsRef.current.maxDistance
+      controls.minPolarAngle = originalDistanceLimitsRef.current.minPolarAngle
+      controls.maxPolarAngle = originalDistanceLimitsRef.current.maxPolarAngle
+    }
+  }
+
+  useFrame((_, delta) => {
+    const controls = controlsRef.current
+    if (!controls) return
+
+    if (!originalDistanceLimitsRef.current) {
+      originalDistanceLimitsRef.current = {
+        minDistance: controls.minDistance,
+        maxDistance: controls.maxDistance,
+        minPolarAngle: controls.minPolarAngle,
+        maxPolarAngle: controls.maxPolarAngle,
+      }
+    }
+
+    const state = useGameStore.getState()
+    const { roleRevealActive, roleRevealIndex } = state
+    const startedReveal = roleRevealActive && !prevRevealActiveRef.current
+    const endedReveal = !roleRevealActive && prevRevealActiveRef.current
+    const changedIndex = roleRevealActive && prevRevealIndexRef.current !== roleRevealIndex
+
+    if (startedReveal || changedIndex) {
+      if (!snapshotRef.current) {
+        snapshotRef.current = {
+          position: camera.position.clone(),
+          target: controls.target.clone(),
+          fov: camera.fov,
+        }
+      }
+
+      const pose = resolveRevealPose(roleRevealIndex, desiredPositionRef.current, desiredTargetRef.current)
+      if (pose) {
+        activeFocusIdRef.current = pose.focusId
+        beginTransition(controls, {
+          position: desiredPositionRef.current,
+          target: desiredTargetRef.current,
+          fov: pose.fov,
+        }, changedIndex ? 1.35 : 1.2)
+      }
+    }
+
+    if (endedReveal) {
+      activeFocusIdRef.current = null
+      if (snapshotRef.current) {
+        beginTransition(controls, snapshotRef.current, 1.35)
+        snapshotRef.current = null
+      }
+    }
+
+    prevRevealActiveRef.current = roleRevealActive
+    prevRevealIndexRef.current = roleRevealIndex
+
+    const transition = transitionRef.current
+    if (transition) {
+      transition.elapsed += delta
+      const linearT = Math.min(transition.elapsed / transition.duration, 1)
+      const t = easeInOutCubic(linearT)
+
+      const lerpedTarget = desiredTargetRef.current.lerpVectors(transition.startTarget, transition.endTarget, t)
+      camera.position.lerpVectors(transition.startPosition, transition.endPosition, t)
+      const nextFov = THREE.MathUtils.lerp(transition.startFov, transition.endFov, t)
+      if (Math.abs(nextFov - camera.fov) > 0.001) {
+        camera.fov = nextFov
+        camera.updateProjectionMatrix()
+      }
+      camera.lookAt(lerpedTarget)
+      controls.target.copy(lerpedTarget)
+      controls.enabled = false
+
+      if (linearT >= 1) transitionRef.current = null
+      return
+    }
+
+    if (activeFocusIdRef.current !== null) {
+      const pose = resolveRevealPose(activeFocusIdRef.current, desiredPositionRef.current, desiredTargetRef.current)
+      if (!pose) return
+
+      camera.position.copy(desiredPositionRef.current)
+      camera.lookAt(desiredTargetRef.current)
+      controls.target.copy(desiredTargetRef.current)
+      if (Math.abs(pose.fov - camera.fov) > 0.001) {
+        camera.fov = pose.fov
+        camera.updateProjectionMatrix()
+      }
+      controls.enabled = false
+      return
+    }
+
+    restoreControlsMode(controls)
+  })
+
+  return null
+}
+
 
 
 function MafiaSceneInner({
@@ -434,7 +594,6 @@ function MafiaSceneInner({
   const pendingNightKillRef = useRef(null)
   const queuedDeathTargetRef = useRef(null)
   const dayBlendRef = useRef(useGameStore.getState().phase === 'night' ? 0 : 1)
-  const players = useGameStore((state) => state.players)
 
   useEffect(() => {
     const store = useGameStore
@@ -495,7 +654,7 @@ function MafiaSceneInner({
       <Canvas
         style={{ width: '100%', height: '100%' }}
         shadows="basic"
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
         gl={{ antialias: true, powerPreference: 'high-performance', alpha: false }}
         camera={{ position: [0, 11, 34], fov: 42 }}
       >
@@ -507,6 +666,10 @@ function MafiaSceneInner({
           deathEventRef={deathEventRef}
         />
         <SpeechCameraDirector
+          playerSlots={playerSlots}
+          controlsRef={controlsRef}
+        />
+        <RoleRevealCameraDirector
           playerSlots={playerSlots}
           controlsRef={controlsRef}
         />
@@ -526,7 +689,6 @@ function MafiaSceneInner({
             playerId={index}
             position={pos}
             showWebcams={showWebcams}
-            webcamVisible={Boolean(players[index]?.alive)}
           />
         ))}
 

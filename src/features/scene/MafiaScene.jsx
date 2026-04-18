@@ -1,6 +1,7 @@
 import { memo, Suspense, useEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
 import { Cloud, Environment, Html, OrbitControls, Stars, useFBX, useGLTF, useTexture } from '@react-three/drei'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import * as THREE from 'three'
 import {
   // dinoModelUrl,
@@ -11,10 +12,13 @@ import {
   treeModelUrl,
 } from '../game/model/constants'
 import { useGameStore } from '../game/model/gameStore'
+import { ALL_ANIM_URLS } from '../game/model/animRegistry'
+import { useAnimStore } from '../game/model/animStore'
 import { AnimationLibrary } from './entities/AnimationLibrary'
 import { Assassin } from './entities/Assassin'
 import { DeathAnimation } from './entities/DeathAnimation'
 import { Dino } from './entities/Dino'
+import { IdleRotationManager } from './entities/IdleRotationManager'
 import { PlayerActor } from './entities/PlayerActor'
 import { ParkZone } from './environment/ParkZone'
 import { StreetLamp } from './environment/StreetLamp'
@@ -29,6 +33,18 @@ function easeInOutCubic(t) {
     return 4 * t * t * t
   }
   return 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+function SceneLoadedStarter() {
+  const startedRef = useRef(false)
+
+  useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+    useAnimStore.getState().startAnimations()
+  }, [])
+
+  return null
 }
 
 function Loader() {
@@ -677,6 +693,7 @@ function MafiaSceneInner({
         <ProceduralGround />
 
         <Suspense fallback={<Loader />}>
+          <SceneLoadedStarter />
           <AnimationLibrary />
           <ParkZone />
           <TownBackdrop />
@@ -684,6 +701,8 @@ function MafiaSceneInner({
           <TreeRing />
           {/* <Dino position={[5, 0, -25]} /> */}
         </Suspense>
+
+        <IdleRotationManager />
 
         {positions.map((pos, index) => (
           <PlayerActor
@@ -716,9 +735,10 @@ function MafiaSceneInner({
 
 export const MafiaScene = memo(MafiaSceneInner)
 
-useFBX.preload('/models/maf/anim.fbx')
-useFBX.preload('/models/maf/dying.fbx')
-useFBX.preload('/models/maf/test-bones-animation.fbx')
+ALL_ANIM_URLS.forEach((url) => {
+  useFBX.preload(url)
+  useLoader.preload(FBXLoader, url)
+})
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)

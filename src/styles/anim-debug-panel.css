@@ -46,6 +46,16 @@
   cursor: pointer;
 }
 
+.anim-debug-toggle-row {
+  justify-content: flex-start;
+}
+
+.anim-debug-rotation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .anim-debug-speed {
   display: flex;
   flex-direction: column;
@@ -56,40 +66,6 @@
   width: 100%;
   accent-color: #6d8f6a;
   cursor: pointer;
-}
-
-.anim-debug-empty {
-  color: #8899aa;
-  font-size: 0.85rem;
-  text-align: center;
-  padding: 8px;
-}
-
-.anim-debug-players {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.anim-debug-clips-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.anim-debug-clip-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.anim-debug-clip-tag {
-  font-size: 0.72rem;
-  padding: 2px 7px;
-  border-radius: 6px;
-  background: rgba(109, 143, 106, 0.25);
-  color: #a5f5c8;
-  white-space: nowrap;
 }
 
 .anim-debug-player-list {
@@ -112,6 +88,15 @@
   font-weight: 600;
 }
 
+.anim-debug-current-idle {
+  font-size: 0.82rem;
+  color: #a5f5c8;
+  background: rgba(109, 143, 106, 0.2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  flex: 1;
+}
+
 .anim-debug-select {
   flex: 1;
   border: 1px solid rgba(214, 222, 233, 0.22);
@@ -130,6 +115,29 @@
 
 .anim-debug-reset {
   width: 100%;
+}
+
+.anim-debug-start {
+  width: 100%;
+  padding: 14px;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.anim-debug-active-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a5f5c8;
+  font-size: 0.88rem;
+}
+
+.anim-debug-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex-shrink: 0;
 }
 
 @media (max-width: 760px) {

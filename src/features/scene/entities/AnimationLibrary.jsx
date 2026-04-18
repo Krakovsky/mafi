@@ -1,36 +1,42 @@
 import { useEffect, useMemo } from 'react'
-import { useFBX } from '@react-three/drei'
-import { useAnimDebugStore } from '../../game/model/animDebugStore'
-
-function renameClip(clip, prefix) {
-  const renamed = clip.clone()
-  renamed.name = `${prefix}::${clip.name}`
-  return renamed
-}
+import { useLoader } from '@react-three/fiber'
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { ALL_ANIM_ENTRIES, ALL_ANIM_URLS } from '../../game/model/animRegistry'
+import { useAnimStore } from '../../game/model/animStore'
 
 export function AnimationLibrary() {
-  const testFbx = useFBX('/models/maf/test-bones-animation.fbx')
-  const dyingFbx = useFBX('/models/maf/dying.fbx')
+  const fbxs = useLoader(FBXLoader, ALL_ANIM_URLS)
 
-  const allEntries = useMemo(() => {
+  const processed = useMemo(() => {
+    const urlToIndex = new Map()
+    ALL_ANIM_URLS.forEach((url, i) => {
+      urlToIndex.set(url, i)
+    })
+
+    const clipsMap = {}
     const entries = []
-    testFbx.animations.forEach((clip) => {
-      const renamed = renameClip(clip, 'Тест')
-      entries.push({ name: renamed.name, sourceLabel: 'Тест', clip: renamed })
+
+    ALL_ANIM_ENTRIES.forEach((entry) => {
+      const idx = urlToIndex.get(entry.url)
+      const fbx = fbxs[idx]
+      if (!fbx || !fbx.animations || fbx.animations.length === 0) {
+        return
+      }
+
+      const sourceClip = fbx.animations[0]
+      const clip = sourceClip.clone()
+      clip.name = entry.id
+      clipsMap[entry.id] = clip
+      entries.push({ id: entry.id, label: entry.label, category: entry.category })
     })
-    dyingFbx.animations.forEach((clip) => {
-      const renamed = renameClip(clip, 'Смерть')
-      entries.push({ name: renamed.name, sourceLabel: 'Смерть', clip: renamed })
-    })
-    return entries
-  }, [testFbx, dyingFbx])
+
+    return { clipsMap, entries }
+  }, [fbxs])
 
   useEffect(() => {
-    useAnimDebugStore.getState().setAvailableClips(
-      allEntries.map((e) => ({ name: e.name, sourceLabel: e.sourceLabel })),
-    )
-    useAnimDebugStore.getState().setAnimClips(allEntries.map((e) => e.clip))
-  }, [allEntries])
+    useAnimStore.getState().setAnimClipsMap(processed.clipsMap)
+    useAnimStore.getState().setAvailableClips(processed.entries)
+  }, [processed])
 
   return null
 }

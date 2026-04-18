@@ -1,35 +1,48 @@
-import { useAnimDebugStore } from '../model/animDebugStore'
+import { useAnimStore } from '../model/animStore'
+import { ANIM_CATEGORIES, ANIM_REGISTRY, getLabelForId } from '../model/animRegistry'
 import { useGameStore } from '../model/gameStore'
 import '../../../styles/anim-debug-panel.css'
 
 export function AnimDebugPanel() {
-  const enabled = useAnimDebugStore((state) => state.enabled)
-  const setEnabled = useAnimDebugStore((state) => state.setEnabled)
-  const playbackSpeed = useAnimDebugStore((state) => state.playbackSpeed)
-  const setPlaybackSpeed = useAnimDebugStore((state) => state.setPlaybackSpeed)
-  const playerClips = useAnimDebugStore((state) => state.playerClips)
-  const setPlayerClip = useAnimDebugStore((state) => state.setPlayerClip)
-  const clearPlayerClip = useAnimDebugStore((state) => state.clearPlayerClip)
-  const resetAllClips = useAnimDebugStore((state) => state.resetAllClips)
-  const availableClips = useAnimDebugStore((state) => state.availableClips)
-  const players = useGameStore((state) => state.players)
+  const animationsActive = useAnimStore((s) => s.animationsActive)
+  const startAnimations = useAnimStore((s) => s.startAnimations)
+  const playbackSpeed = useAnimStore((s) => s.playbackSpeed)
+  const setPlaybackSpeed = useAnimStore((s) => s.setPlaybackSpeed)
+  const playerOverrides = useAnimStore((s) => s.playerOverrides)
+  const setPlayerOverride = useAnimStore((s) => s.setPlayerOverride)
+  const clearPlayerOverride = useAnimStore((s) => s.clearPlayerOverride)
+  const resetAllOverrides = useAnimStore((s) => s.resetAllOverrides)
+  const idleRotationEnabled = useAnimStore((s) => s.idleRotationEnabled)
+  const setIdleRotationEnabled = useAnimStore((s) => s.setIdleRotationEnabled)
+  const idleRotationMinSec = useAnimStore((s) => s.idleRotationMinSec)
+  const idleRotationMaxSec = useAnimStore((s) => s.idleRotationMaxSec)
+  const setIdleRotationMinSec = useAnimStore((s) => s.setIdleRotationMinSec)
+  const setIdleRotationMaxSec = useAnimStore((s) => s.setIdleRotationMaxSec)
+  const idleAssignments = useAnimStore((s) => s.idleAssignments)
+  const players = useGameStore((s) => s.players)
 
   return (
     <aside className="anim-debug-panel">
       <div className="anim-debug-header">
-        <h2 className="anim-debug-title">Тест анимаций</h2>
-        <label className="anim-debug-toggle">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
-          <span>{enabled ? 'Вкл' : 'Выкл'}</span>
-        </label>
+        <h2 className="anim-debug-title">Анимации</h2>
       </div>
 
-      {enabled && (
+      {!animationsActive && (
+        <button
+          className="btn action anim-debug-start"
+          onClick={startAnimations}
+        >
+          Запустить анимации
+        </button>
+      )}
+
+      {animationsActive && (
         <>
+          <div className="anim-debug-active-row">
+            <span className="anim-debug-active-dot" />
+            <span>Анимации работают</span>
+          </div>
+
           <div className="anim-debug-speed">
             <label className="field-label">
               Скорость: {playbackSpeed.toFixed(1)}x
@@ -45,61 +58,88 @@ export function AnimDebugPanel() {
             />
           </div>
 
-          {availableClips.length === 0 && (
-            <div className="anim-debug-empty">
-              Загрузка анимаций...
-            </div>
-          )}
+          <div className="anim-debug-rotation">
+            <label className="anim-debug-toggle anim-debug-toggle-row">
+              <input
+                type="checkbox"
+                checked={idleRotationEnabled}
+                onChange={(e) => setIdleRotationEnabled(e.target.checked)}
+              />
+              <span>Ротация idle</span>
+            </label>
+            {idleRotationEnabled && (
+              <div className="anim-debug-speed">
+                <label className="field-label">
+                  Мин: {idleRotationMinSec}с
+                </label>
+                <input
+                  type="range"
+                  min="4"
+                  max="30"
+                  step="1"
+                  value={idleRotationMinSec}
+                  onChange={(e) => setIdleRotationMinSec(parseInt(e.target.value, 10))}
+                  className="anim-debug-slider"
+                />
+                <label className="field-label">
+                  Макс: {idleRotationMaxSec}с
+                </label>
+                <input
+                  type="range"
+                  min="4"
+                  max="60"
+                  step="1"
+                  value={idleRotationMaxSec}
+                  onChange={(e) => setIdleRotationMaxSec(parseInt(e.target.value, 10))}
+                  className="anim-debug-slider"
+                />
+              </div>
+            )}
+          </div>
 
-          {availableClips.length > 0 && (
-            <div className="anim-debug-players">
-              <div className="anim-debug-clips-info">
-                <span className="field-label">Доступные клипы:</span>
-                <div className="anim-debug-clip-tags">
-                  {availableClips.map((clip) => (
-                    <span key={clip.name} className="anim-debug-clip-tag" title={clip.sourceUrl}>
-                      {clip.name}
-                    </span>
-                  ))}
+          <div className="anim-debug-player-list">
+            {players.map((player) => {
+              const override = playerOverrides[player.id]
+              const idle = idleAssignments[player.id]
+              const currentLabel = override ? getLabelForId(override) : (idle ? getLabelForId(idle) : '—')
+              return (
+                <div key={player.id} className="anim-debug-player-row">
+                  <span className="anim-debug-player-label">
+                    {player.number}
+                  </span>
+                  <select
+                    className="anim-debug-select"
+                    value={override || ''}
+                    onChange={(e) => {
+                      if (e.target.value === '') {
+                        clearPlayerOverride(player.id)
+                      } else {
+                        setPlayerOverride(player.id, e.target.value)
+                      }
+                    }}
+                  >
+                    <option value="">— {currentLabel} —</option>
+                    {Object.entries(ANIM_CATEGORIES).map(([catKey, catLabel]) => (
+                      <optgroup key={catKey} label={catLabel}>
+                        {ANIM_REGISTRY[catKey].map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
-              </div>
+              )
+            })}
+          </div>
 
-              <div className="anim-debug-player-list">
-                {players.map((player) => (
-                  <div key={player.id} className="anim-debug-player-row">
-                    <span className="anim-debug-player-label">
-                      {player.number}
-                    </span>
-                    <select
-                      className="anim-debug-select"
-                      value={playerClips[player.id] || ''}
-                      onChange={(e) => {
-                        if (e.target.value === '') {
-                          clearPlayerClip(player.id)
-                        } else {
-                          setPlayerClip(player.id, e.target.value)
-                        }
-                      }}
-                    >
-                      <option value="">— idle —</option>
-                      {availableClips.map((clip) => (
-                        <option key={clip.name} value={clip.name}>
-                          {clip.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                className="btn ghost anim-debug-reset"
-                onClick={resetAllClips}
-              >
-                Сбросить все
-              </button>
-            </div>
-          )}
+          <button
+            className="btn ghost anim-debug-reset"
+            onClick={resetAllOverrides}
+          >
+            Сбросить все
+          </button>
         </>
       )}
     </aside>

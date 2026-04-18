@@ -82,7 +82,7 @@ function PlayerActorBase({ playerId, position, showWebcams }) {
           center
           distanceFactor={5}
           style={{
-            pointerEvents: webcamVisible ? 'auto' : 'none',
+            pointerEvents: 'none',
             width: viewportW,
             overflow: 'visible',
             transition: 'opacity 220ms ease',

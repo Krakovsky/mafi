@@ -8,17 +8,20 @@ export function useAnimSync(isAdmin) {
       const unsubAnim = useAnimStore.subscribe((state, prevState) => {
         if (state.idleAssignments !== prevState.idleAssignments ||
             state.animationsActive !== prevState.animationsActive ||
-            state.playerOverrides !== prevState.playerOverrides) {
+            state.playerOverrides !== prevState.playerOverrides ||
+            state.playbackSpeed !== prevState.playbackSpeed) {
           const gameStore = useGameStore.getState()
           gameStore.setAnimIdleAssignments(state.idleAssignments)
           gameStore.setAnimActive(state.animationsActive)
           gameStore.setAnimOverrides(state.playerOverrides)
+          gameStore.setAnimPlaybackSpeed(state.playbackSpeed)
         }
       })
 
       useGameStore.getState().setAnimIdleAssignments(useAnimStore.getState().idleAssignments)
       useGameStore.getState().setAnimActive(useAnimStore.getState().animationsActive)
       useGameStore.getState().setAnimOverrides(useAnimStore.getState().playerOverrides)
+      useGameStore.getState().setAnimPlaybackSpeed(useAnimStore.getState().playbackSpeed)
 
       return unsubAnim
     }
@@ -26,13 +29,15 @@ export function useAnimSync(isAdmin) {
     const unsubGame = useGameStore.subscribe((state, prevState) => {
       const animChanged = state.animActive !== prevState.animActive ||
         state.animIdleAssignments !== prevState.animIdleAssignments ||
-        state.animOverrides !== prevState.animOverrides
+        state.animOverrides !== prevState.animOverrides ||
+        state.animPlaybackSpeed !== prevState.animPlaybackSpeed
 
       if (animChanged) {
         useAnimStore.getState().applyAnimSync({
           animationsActive: state.animActive,
           idleAssignments: state.animIdleAssignments,
           playerOverrides: state.animOverrides,
+          playbackSpeed: state.animPlaybackSpeed,
         })
       }
     })
@@ -41,6 +46,7 @@ export function useAnimSync(isAdmin) {
       animationsActive: useGameStore.getState().animActive,
       idleAssignments: useGameStore.getState().animIdleAssignments,
       playerOverrides: useGameStore.getState().animOverrides,
+      playbackSpeed: useGameStore.getState().animPlaybackSpeed,
     })
 
     return unsubGame

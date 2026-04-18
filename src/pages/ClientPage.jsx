@@ -18,6 +18,7 @@ export default function ClientPage() {
         <MafiaScene
           assassinationRef={assassinationRef}
           showWebcams
+          isAdmin={false}
         />
       </section>
       <RoleRevealCard isAdmin={false} />

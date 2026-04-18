@@ -35,14 +35,16 @@ function easeInOutCubic(t) {
   return 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
-function SceneLoadedStarter() {
+function SceneLoadedStarter({ isAdmin }) {
   const startedRef = useRef(false)
 
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
-    useAnimStore.getState().startAnimations()
-  }, [])
+    if (isAdmin) {
+      useAnimStore.getState().startAnimations()
+    }
+  }, [isAdmin])
 
   return null
 }
@@ -605,6 +607,7 @@ function RoleRevealCameraDirector({ playerSlots, controlsRef }) {
 function MafiaSceneInner({
   assassinationRef,
   showWebcams = true,
+  isAdmin = false,
 }) {
   const controlsRef = useRef(null)
   const deathEventRef = useRef({ eventId: 0, targetId: null })
@@ -693,7 +696,7 @@ function MafiaSceneInner({
         <ProceduralGround />
 
         <Suspense fallback={<Loader />}>
-          <SceneLoadedStarter />
+          <SceneLoadedStarter isAdmin={isAdmin} />
           <AnimationLibrary />
           <ParkZone />
           <TownBackdrop />

@@ -177,6 +177,11 @@ export function PlayerModel({ tint, alive, playerId }) {
   const prevClipIdRef = useRef(null)
 
   useEffect(() => {
+    currentActionRef.current = null
+    prevClipIdRef.current = null
+  }, [mixer])
+
+  useEffect(() => {
     mixer.timeScale = playbackSpeed
   }, [mixer, playbackSpeed])
 

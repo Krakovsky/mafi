@@ -20,6 +20,7 @@ export default function AdminPage() {
         <MafiaScene
           assassinationRef={assassinationRef}
           showWebcams
+          isAdmin
         />
       </section>
 

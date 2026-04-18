@@ -25,7 +25,6 @@ export const useAnimStore = create((set, get) => ({
   idleRotationMinSec: 8,
   idleRotationMaxSec: 22,
   idleAssignments: {},
-  idleTimers: {},
   pendingIdleSwitch: {},
 
   availableClips: [],
@@ -117,6 +116,9 @@ export const useAnimStore = create((set, get) => ({
       if (changed) {
         patch.playerOverrides = { ...incoming }
       }
+    }
+    if (typeof sync.playbackSpeed === 'number' && sync.playbackSpeed !== get().playbackSpeed) {
+      patch.playbackSpeed = sync.playbackSpeed
     }
 
     if (Object.keys(patch).length > 0) {

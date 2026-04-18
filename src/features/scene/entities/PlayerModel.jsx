@@ -2,10 +2,11 @@ import { useEffect, useMemo } from 'react'
 import { useFBX, useAnimations, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { useAnimDebugStore } from '../../game/model/animDebugStore'
 
 const ANIM_FBX_URL = '/models/maf/anim.fbx'
 
-export function PlayerModel({ tint, alive }) {
+export function PlayerModel({ tint, alive, playerId }) {
   const fbx = useFBX(ANIM_FBX_URL)
   const textures = useTexture({
     mat2: '/models/maf/textures/mat_2_baseColor.png',
@@ -120,7 +121,23 @@ export function PlayerModel({ tint, alive }) {
     return { cloned: c, normalizedScale: scale }
   }, [fbx, textureMap])
 
-  const { actions, mixer } = useAnimations(fbx.animations, cloned)
+  const animClips = useAnimDebugStore((state) => state.animClips)
+
+  const allClips = useMemo(() => {
+    const base = fbx.animations.map((c) => {
+      const renamed = c.clone()
+      renamed.name = `Idle::${c.name}`
+      return renamed
+    })
+    const extras = animClips.map((c) => c.clone())
+    return [...base, ...extras]
+  }, [fbx.animations, animClips])
+
+  const { actions, mixer } = useAnimations(allClips, cloned)
+
+  const debugEnabled = useAnimDebugStore((state) => state.enabled)
+  const playerClip = useAnimDebugStore((state) => state.playerClips[playerId])
+  const playbackSpeed = useAnimDebugStore((state) => state.playbackSpeed)
 
   useEffect(() => {
     const names = Object.keys(actions)
@@ -128,7 +145,15 @@ export function PlayerModel({ tint, alive }) {
       return undefined
     }
 
-    const action = actions[names[0]]
+    mixer?.stopAllAction()
+
+    const idleName = fbx.animations.length > 0 ? `Idle::${fbx.animations[0].name}` : names[0]
+    let targetClip = idleName
+    if (debugEnabled && playerClip && actions[playerClip]) {
+      targetClip = playerClip
+    }
+
+    const action = actions[targetClip]
     if (action) {
       action.reset().fadeIn(0.3).play()
     }
@@ -143,7 +168,13 @@ export function PlayerModel({ tint, alive }) {
       })
       mixer?.stopAllAction()
     }
-  }, [actions, cloned, mixer])
+  }, [actions, mixer, cloned, debugEnabled, playerClip])
+
+  useEffect(() => {
+    if (mixer) {
+      mixer.timeScale = debugEnabled ? playbackSpeed : 1
+    }
+  }, [mixer, playbackSpeed, debugEnabled])
 
   return (
     <group scale={alive ? normalizedScale : normalizedScale * 0.96}>

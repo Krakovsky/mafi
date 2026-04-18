@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useRealtimeSync } from '../features/game/realtime/useRealtimeSync'
 import { AdminControlPanel } from '../features/game/ui/AdminControlPanel'
+import { AnimDebugPanel } from '../features/game/ui/AnimDebugPanel'
 import { RoleRevealCard } from '../features/game/ui/RoleRevealCard'
 import { MafiaScene } from '../features/scene/MafiaScene'
 import '../styles/layout.css'
@@ -21,6 +22,7 @@ export default function AdminPage() {
       </section>
 
       <AdminControlPanel assassinationRef={assassinationRef} />
+      <AnimDebugPanel />
       <RoleRevealCard isAdmin />
 
       <Link className="route-switch" to="/">

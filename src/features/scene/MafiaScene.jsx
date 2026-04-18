@@ -11,6 +11,7 @@ import {
   treeModelUrl,
 } from '../game/model/constants'
 import { useGameStore } from '../game/model/gameStore'
+import { AnimationLibrary } from './entities/AnimationLibrary'
 import { Assassin } from './entities/Assassin'
 import { DeathAnimation } from './entities/DeathAnimation'
 import { Dino } from './entities/Dino'
@@ -676,6 +677,7 @@ function MafiaSceneInner({
         <ProceduralGround />
 
         <Suspense fallback={<Loader />}>
+          <AnimationLibrary />
           <ParkZone />
           <TownBackdrop />
           <StreetLamp />
@@ -716,6 +718,7 @@ export const MafiaScene = memo(MafiaSceneInner)
 
 useFBX.preload('/models/maf/anim.fbx')
 useFBX.preload('/models/maf/dying.fbx')
+useFBX.preload('/models/maf/test-bones-animation.fbx')
 useGLTF.preload(townModelUrl)
 useGLTF.preload(lampModelUrl)
 useGLTF.preload(treeModelUrl)

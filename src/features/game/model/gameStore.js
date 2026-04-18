@@ -43,6 +43,10 @@ export const useGameStore = create((set, get) => ({
   gameStarted: false,
   gameStartedEventId: 0,
   log: ['Игра началась. Город просыпается.'],
+  animActive: false,
+  animIdleAssignments: {},
+  animOverrides: {},
+  animPlaybackSpeed: 1,
 
   resetGame: () => {
     set({
@@ -60,6 +64,10 @@ export const useGameStore = create((set, get) => ({
       gameStarted: false,
       gameStartedEventId: 0,
       log: ['Новая партия началась. Город засыпает.'],
+      animActive: false,
+      animIdleAssignments: {},
+      animOverrides: {},
+      animPlaybackSpeed: 1,
     })
   },
 
@@ -327,6 +335,12 @@ export const useGameStore = create((set, get) => ({
     set({ log: [...log, line.trim()] })
   },
 
+  setAnimActive: (animActive) => set({ animActive }),
+
+  setAnimIdleAssignments: (animIdleAssignments) => set({ animIdleAssignments }),
+  setAnimOverrides: (animOverrides) => set({ animOverrides }),
+  setAnimPlaybackSpeed: (animPlaybackSpeed) => set({ animPlaybackSpeed }),
+
   applyExternalState: (snapshot) => {
     if (!snapshot || !Array.isArray(snapshot.players)) {
       return
@@ -348,6 +362,24 @@ export const useGameStore = create((set, get) => ({
     if (snapshot.winner !== current.winner) { patch.winner = snapshot.winner; hasChanges = true }
     if ((snapshot.gameStarted ?? false) !== current.gameStarted) { patch.gameStarted = snapshot.gameStarted ?? false; hasChanges = true }
     if ((snapshot.gameStartedEventId ?? 0) !== current.gameStartedEventId) { patch.gameStartedEventId = snapshot.gameStartedEventId ?? 0; hasChanges = true }
+    if ((snapshot.animActive ?? false) !== current.animActive) { patch.animActive = snapshot.animActive ?? false; hasChanges = true }
+    {
+      const incomingAnim = snapshot.animIdleAssignments ?? {}
+      const currentAnim = current.animIdleAssignments ?? {}
+      if (JSON.stringify(incomingAnim) !== JSON.stringify(currentAnim)) {
+        patch.animIdleAssignments = incomingAnim
+        hasChanges = true
+      }
+    }
+    {
+      const incomingOvr = snapshot.animOverrides ?? {}
+      const currentOvr = current.animOverrides ?? {}
+      if (JSON.stringify(incomingOvr) !== JSON.stringify(currentOvr)) {
+        patch.animOverrides = incomingOvr
+        hasChanges = true
+      }
+    }
+    if ((snapshot.animPlaybackSpeed ?? 1) !== current.animPlaybackSpeed) { patch.animPlaybackSpeed = snapshot.animPlaybackSpeed ?? 1; hasChanges = true }
 
     const incomingLog = Array.isArray(snapshot.log) ? snapshot.log : []
     if (incomingLog.length !== current.log.length || incomingLog[incomingLog.length - 1] !== current.log[current.log.length - 1]) {
@@ -379,7 +411,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   exportSnapshot: () => {
-    const { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log } = get()
-    return { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log }
+    const { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log, animActive, animIdleAssignments, animOverrides, animPlaybackSpeed } = get()
+    return { phase, round, players, pendingNightResult, speechFocusPlayerId, speechFocusEventId, roleRevealActive, roleRevealIndex, roleRevealCardRevealed, roleRevealEventId, winner, gameStarted, gameStartedEventId, log, animActive, animIdleAssignments, animOverrides, animPlaybackSpeed }
   },
 }))

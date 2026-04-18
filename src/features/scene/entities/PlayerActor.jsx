@@ -71,7 +71,7 @@ function PlayerActorBase({ playerId, position, showWebcams }) {
       <group name={`player-actor-${player.id}`} position={[x, y, z]} rotation={[0, facing, 0]}>
         <group position={[0, 0.06, 0]}>
           <Suspense fallback={<PlayerFallback tint={tint} alive={player.alive} />}>
-            <PlayerModel tint={tint} alive={player.alive} />
+            <PlayerModel tint={tint} alive={player.alive} playerId={playerId} />
           </Suspense>
         </group>
       </group>
@@ -82,7 +82,7 @@ function PlayerActorBase({ playerId, position, showWebcams }) {
           center
           distanceFactor={5}
           style={{
-            pointerEvents: webcamVisible ? 'auto' : 'none',
+            pointerEvents: 'none',
             width: viewportW,
             overflow: 'visible',
             transition: 'opacity 220ms ease',

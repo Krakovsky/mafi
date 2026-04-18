@@ -1,11 +1,15 @@
-import { useEffect, useMemo } from 'react'
-import { useFBX, useAnimations, useTexture } from '@react-three/drei'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFBX, useTexture } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { useAnimStore } from '../../game/model/animStore'
 
 const ANIM_FBX_URL = '/models/maf/anim.fbx'
+const BASE_IDLE_CLIP_ID = 'idle-base'
+const CROSSFADE_SEC = 0.4
 
-export function PlayerModel({ tint, alive }) {
+export function PlayerModel({ tint, alive, playerId }) {
   const fbx = useFBX(ANIM_FBX_URL)
   const textures = useTexture({
     mat2: '/models/maf/textures/mat_2_baseColor.png',
@@ -120,30 +124,127 @@ export function PlayerModel({ tint, alive }) {
     return { cloned: c, normalizedScale: scale }
   }, [fbx, textureMap])
 
-  const { actions, mixer } = useAnimations(fbx.animations, cloned)
+  const baseClips = useMemo(() => {
+    return fbx.animations.map((c) => {
+      const renamed = c.clone()
+      renamed.name = BASE_IDLE_CLIP_ID
+      return renamed
+    })
+  }, [fbx.animations])
+
+  const clipsRef = useRef({})
+  const registeredRef = useRef(new Set())
+  const baseRegisteredRef = useRef(false)
+
+  const animClipsMap = useAnimStore((s) => s.animClipsMap)
 
   useEffect(() => {
-    const names = Object.keys(actions)
-    if (names.length === 0) {
-      return undefined
-    }
-
-    const action = actions[names[0]]
-    if (action) {
-      action.reset().fadeIn(0.3).play()
-    }
-
-    return () => {
-      Object.values(actions).forEach((currentAction) => {
-        if (!currentAction) {
-          return
+    if (!baseRegisteredRef.current) {
+      for (const c of baseClips) {
+        if (!registeredRef.current.has(c.name)) {
+          registeredRef.current.add(c.name)
+          clipsRef.current[c.name] = c
         }
-        currentAction.fadeOut(0.2)
-        currentAction.stop()
-      })
-      mixer?.stopAllAction()
+      }
+      baseRegisteredRef.current = true
     }
-  }, [actions, cloned, mixer])
+  }, [baseClips])
+
+  useEffect(() => {
+    for (const [id, clip] of Object.entries(animClipsMap)) {
+      if (!registeredRef.current.has(id)) {
+        registeredRef.current.add(id)
+        clipsRef.current[id] = clip.clone()
+      }
+    }
+  }, [animClipsMap])
+
+  const mixer = useMemo(() => new THREE.AnimationMixer(cloned), [cloned])
+
+  useFrame((_, delta) => {
+    mixer.update(delta)
+  })
+
+  const playerOverride = useAnimStore((s) => s.playerOverrides[playerId])
+  const idleAssignment = useAnimStore((s) => s.idleAssignments[playerId])
+  const animationsActive = useAnimStore((s) => s.animationsActive)
+  const playbackSpeed = useAnimStore((s) => s.playbackSpeed)
+
+  const currentClipId = animationsActive
+    ? (playerOverride || idleAssignment || BASE_IDLE_CLIP_ID)
+    : null
+  const currentActionRef = useRef(null)
+  const prevClipIdRef = useRef(null)
+
+  useEffect(() => {
+    currentActionRef.current = null
+    prevClipIdRef.current = null
+  }, [mixer])
+
+  useEffect(() => {
+    mixer.timeScale = playbackSpeed
+  }, [mixer, playbackSpeed])
+
+  useEffect(() => {
+    const clipId = currentClipId
+
+    if (!clipId) {
+      const prevAction = currentActionRef.current
+      if (prevAction) {
+        prevAction.fadeOut(0.3)
+        currentActionRef.current = null
+        prevClipIdRef.current = null
+      }
+      return
+    }
+
+    const clip = clipsRef.current[clipId]
+    const fallbackClip = clipsRef.current[BASE_IDLE_CLIP_ID]
+
+    const clipToUse = clip || fallbackClip
+    if (!clipToUse) return
+
+    const newAction = mixer.clipAction(clipToUse, cloned)
+
+    if (prevClipIdRef.current === clipId && currentActionRef.current) {
+      return
+    }
+
+    const prevAction = currentActionRef.current
+
+    if (prevAction && prevAction !== newAction) {
+      prevAction.fadeOut(CROSSFADE_SEC)
+      newAction.reset().fadeIn(CROSSFADE_SEC).play()
+    } else if (!prevAction) {
+      newAction.reset().fadeIn(0.3).play()
+    }
+
+    currentActionRef.current = newAction
+    prevClipIdRef.current = clipId
+  }, [mixer, cloned, currentClipId])
+
+  useEffect(() => {
+    if (!mixer) return
+
+    const onLoop = () => {
+      const animState = useAnimStore.getState()
+      if (!animState.animationsActive) return
+      if (!animState.idleRotationEnabled) return
+      if (animState.playerOverrides[playerId]) return
+      if (!animState.pendingIdleSwitch[playerId]) return
+
+      animState.assignNewIdle(playerId)
+    }
+
+    mixer.addEventListener('loop', onLoop)
+    return () => mixer.removeEventListener('loop', onLoop)
+  }, [mixer, playerId])
+
+  useEffect(() => {
+    return () => {
+      mixer.stopAllAction()
+    }
+  }, [mixer])
 
   return (
     <group scale={alive ? normalizedScale : normalizedScale * 0.96}>
